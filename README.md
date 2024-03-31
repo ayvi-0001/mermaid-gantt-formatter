@@ -22,11 +22,11 @@ gantt
     Create tests for renderer   :2d
     Add to mermaid  :until isadded
     Functionality added   :milestone, isadded, 2014-01-25, 0d
-
     section Documentation
     Describe gantt syntax  :active, a1, after des1, 3d
     Add gantt diagram to demo page   :after a1  , 20h
     Add another diagram to demo page    :doc1, after a1  , 48h
+
 
     section Last section
     Describe gantt syntax   :after doc1, 3d
@@ -37,13 +37,14 @@ gantt
 ### Cmd
 
 ```shell
-cargo run timeline.mmd
+cargo run timeline.mmd # edited in-place
+
+cargo run timeline.mmd new.mmd # write to destination
 ```
 
 ### After
 
 ```mmd
-%% timeline.mmd
 gantt
 %% Example from https://mermaid.js.org/syntax/gantt.html#syntax.
   title Adding GANTT diagram functionality to mermaid
