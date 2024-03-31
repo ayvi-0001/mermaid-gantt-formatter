@@ -15,7 +15,9 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
 use std::iter::Map;
+use std::ops::Add;
 use std::str::Split;
+use std::vec::IntoIter;
 
 /// Required/optional keywords that may appear at the top of a gantt .mmd file or elsewhere.
 /// Note: this list is not inclusive. This script doesn't currently account for YAML frontmatter. https://mermaid.js.org/config/configuration.html#frontmatter-config
@@ -141,78 +143,106 @@ fn push_udis_to_task_line(
 
 fn get_task_lines(lines: Vec<&str>) -> Vec<&str> {
     let mut task_lines: Vec<&str> = vec![];
-
-    for line in lines
-        .iter()
-        .cloned()
-        .map(str::trim)
-        .filter(|&line| !MMD_GANTT_KWS.iter().any(|&tag| line.contains(tag)))
-        .filter(|&item| !item.starts_with("%%"))
-    {
-        if line.contains(":") {
-            task_lines.push(line);
-        }
+    for line in lines.iter().cloned().map(str::trim).filter(|&line| {
+        !MMD_GANTT_KWS.iter().any(|&tag| line.contains(tag))
+            && !line.starts_with("%%")
+            && line.contains(":")
+    }) {
+        task_lines.push(line);
     }
     return task_lines;
+}
+
+fn push_task_lines(
+    line: &str,
+    map_item_lenths: &HashMap<&str, usize>,
+    mut new_lines: Vec<String>,
+) -> Vec<String> {
+    let task_split: Vec<&str> = line.split(":").map(str::trim).collect();
+    let mut task_line: String = String::from(task_split[0]);
+    let max_len_title: &usize = map_item_lenths.get("max_len_title").unwrap();
+
+    task_line = pad_string(task_line, *max_len_title);
+    task_line.push_str("  : ");
+
+    let meta_items: HashMap<String, Vec<&str>> = split_meta_tags(TASK_TAGS, task_split[1]);
+    task_line = push_tags_to_task_line(task_line, meta_items.get("tags").unwrap());
+    task_line = push_udis_to_task_line(
+        task_line,
+        meta_items.get("udis").unwrap(),
+        map_item_lenths.clone(),
+    );
+    // Indent task titles 2 levels.
+    if task_line.starts_with("%%") {
+        let comment_task_split: Vec<&str> = task_line
+            .strip_prefix("%%")
+            .unwrap()
+            .split(":")
+            .map(str::trim_start)
+            .collect();
+
+        let mut first_half: String = String::from(comment_task_split[0]);
+        first_half = pad_string(first_half, *max_len_title);
+        let second_half: String = String::from(comment_task_split[1]);
+
+        new_lines.push(format!("%%  {}  : {}", first_half, second_half));
+    } else {
+        new_lines.push(format!("    {}", task_line));
+    }
+    return new_lines;
 }
 
 /// Returns a mapping of the max length for tasks names and metadata tags.
 /// Used for padding whitespace chars and aligning columns.
 fn get_max_item_lengths<'a>(tags: [&str; 4], lines: Vec<&'a str>) -> HashMap<&'a str, usize> {
-    let mut task_titles: Vec<&str> = vec![];
-    let mut task_ids: Vec<&str> = vec![];
-    let mut task_starts: Vec<&str> = vec![];
-    let mut task_ends: Vec<&str> = vec![];
+    let mut titles: Vec<&str> = vec![];
+    let mut ids: Vec<&str> = vec![];
+    let mut starts: Vec<&str> = vec![];
+    let mut ends: Vec<&str> = vec![];
 
     for line in get_task_lines(lines.clone()).iter() {
         let metadata: Vec<&str> = line.split(":").map(str::trim).collect();
-        task_titles.push(metadata[0]);
+        titles.push(metadata[0]);
 
-        let meta_items: HashMap<String, Vec<&str>> = split_meta_vars(tags, metadata[1]);
+        let meta_items: HashMap<String, Vec<&str>> = split_meta_tags(tags, metadata[1]);
         let task_udis: &Vec<&str> = meta_items.get("udis").unwrap();
 
         match task_udis.len() {
             3 => {
-                task_ids.push(task_udis[0]);
-                task_starts.push(task_udis[1]);
-                task_ends.push(task_udis[2]);
+                ids.push(task_udis[0]);
+                starts.push(task_udis[1]);
+                ends.push(task_udis[2]);
             }
             2 => {
-                task_starts.push(task_udis[0]);
-                task_ends.push(task_udis[1]);
+                starts.push(task_udis[0]);
+                ends.push(task_udis[1]);
             }
             1 => {
-                task_ends.push(task_udis[0]);
+                ends.push(task_udis[0]);
             }
             _ => {}
         }
     }
 
-    let mut map_item_lenths: HashMap<&str, usize> = HashMap::new();
-    let longest_title: Option<&str> = find_longest_string(&task_titles);
-    let longest_id: Option<&str> = find_longest_string(&task_ids);
-    let longest_start: Option<&str> = find_longest_string(&task_starts);
-    let longest_end: Option<&str> = find_longest_string(&task_ends);
-
     fn _get_count(option: Option<&str>) -> usize {
         return option.unwrap().chars().count();
     }
 
-    map_item_lenths.insert("max_len_title", _get_count(longest_title));
-    map_item_lenths.insert("max_len_task_id", _get_count(longest_id));
-    map_item_lenths.insert("max_len_start", _get_count(longest_start));
-    map_item_lenths.insert("max_len_end", _get_count(longest_end));
+    let mut map_item_lenths: HashMap<&str, usize> = HashMap::new();
+    map_item_lenths.insert("max_len_title", _get_count(find_longest_string(&titles)));
+    map_item_lenths.insert("max_len_task_id", _get_count(find_longest_string(&ids)));
+    map_item_lenths.insert("max_len_start", _get_count(find_longest_string(&starts)));
+    map_item_lenths.insert("max_len_end", _get_count(find_longest_string(&ends)));
 
     return map_item_lenths;
 }
 
-fn split_meta_vars<'a>(tags: [&str; 4], metadata: &'a str) -> HashMap<String, Vec<&'a str>> {
+fn split_meta_tags<'a>(tags: [&str; 4], metadata: &'a str) -> HashMap<String, Vec<&'a str>> {
     let meta_items: Map<Split<'_, &str>, fn(&str) -> &str> = metadata.split(",").map(str::trim);
     let task_tags: Vec<&str> = meta_items.clone().filter(|&x| !x.is_empty()).collect();
     let task_udis: Vec<&str> = meta_items
         .clone()
-        .filter(|&x| !x.is_empty())
-        .filter(|&item| !tags.contains(&item))
+        .filter(|&line| !line.is_empty() && !tags.contains(&line))
         .collect();
 
     let mut meta: HashMap<String, Vec<&str>> = HashMap::new();
@@ -250,41 +280,44 @@ fn create_or_replace_file(file_name: &String, contents: String) -> std::io::Resu
     Ok(())
 }
 
+type MapIter<'l> = Map<IntoIter<&'l str>, for<'a> fn(&'a str) -> &'a str>;
+
+fn line_is_before_section(line: &str, idx: usize, c_map_lines: &MapIter) -> bool {
+    return line.is_empty()
+        && c_map_lines.clone().collect::<Vec<_>>()[idx.add(1)].contains("section");
+}
+
+fn line_is_keyword(line: &str) -> bool {
+    return MMD_GANTT_KWS.iter().any(|&tag| line.starts_with(tag));
+}
+
+fn line_is_task(line: &str) -> bool {
+    return line.contains(":");
+}
+
+fn line_is_title(line: &str) -> bool {
+    // Add gantt title at top of file with no indent and add any commented lines that are not tasks.
+    return line.starts_with("gantt") || (line.starts_with("%%") && !line.contains(":"));
+}
+
 fn generate_new_lines(lines: Vec<&str>) -> Vec<String> {
     let mut new_lines: Vec<String> = vec![];
     let map_item_lenths: HashMap<&str, usize> = get_max_item_lengths(TASK_TAGS, lines.clone());
+    let map_lines: MapIter = lines.into_iter().map(str::trim);
+    let c_map_lines: MapIter = map_lines.clone();
 
-    for line in lines.into_iter().map(str::trim) {
-        // Add gantt title at top of file with no indent and add any commented lines.
-        if line.starts_with("gantt") || line.starts_with("%%") {
+    for (_idx, line) in map_lines.enumerate() {
+        if line_is_title(line) {
             new_lines.push(String::from(line));
-        } else if MMD_GANTT_KWS.iter().any(|&tag| line.starts_with(tag)) {
-            // Add any remaining args idented 1 level.
-            new_lines.push(format!("  {}", line));
+        } else if line_is_before_section(line, _idx, &c_map_lines) {
+            new_lines.push(String::new());
+        } else if line_is_keyword(line) {
+            new_lines.push(format!("  {}", line)); // Add any remaining keyword lines idented 1 level.
         } else if line.contains("section") {
-            if new_lines.last().unwrap() != "" {
-                new_lines.push(String::new());
-            }
-            // Indent sections 1 level.
-            new_lines.push(String::from(format!("  {}", line)));
-        } else if line.contains(":") {
-            let task_split: Vec<&str> = line.split(":").map(str::trim).collect();
-            let mut task_line: String = String::from(task_split[0]);
-            let max_len_title: &usize = map_item_lenths.get("max_len_title").unwrap();
-
-            task_line = pad_string(task_line, *max_len_title);
-            task_line.push_str("  : ");
-
-            let meta_items: HashMap<String, Vec<&str>> = split_meta_vars(TASK_TAGS, task_split[1]);
-            task_line = push_tags_to_task_line(task_line, meta_items.get("tags").unwrap());
-            task_line = push_udis_to_task_line(
-                task_line,
-                meta_items.get("udis").unwrap(),
-                map_item_lenths.clone(),
-            );
-            // Indent task titles 2 levels.
-            new_lines.push(format!("    {}", task_line));
-        } else {
+            new_lines.push(String::from(format!("  {}", line))); // Indent sections 1 level.
+        } else if line_is_task(line) {
+            new_lines = push_task_lines(line, &map_item_lenths, new_lines);
+        } else if !line.is_empty() {
             // For any uncaught scenarios, add the line as is.
             new_lines.push(String::from(line));
         }
@@ -294,14 +327,26 @@ fn generate_new_lines(lines: Vec<&str>) -> Vec<String> {
     return new_lines;
 }
 
-/// Pass filename as first arg. File is edited in-place.
+/// First arg = file to read.
+/// Second arg = file to write to.
+/// If only the first arg is provided, then file is edited in-place.
 fn main() -> std::io::Result<()> {
     let args: Vec<String> = std::env::args().collect();
     let file_name: &String = &args[1];
     let file_text: String =
         std::fs::read_to_string(file_name).expect(&format!("Could not read file {}", file_name));
-    create_or_replace_file(
-        file_name,
-        generate_new_lines(file_text.lines().collect()).join("\n"),
-    )
+
+    match &args.len() {
+        3 => {
+            let destination: &String = &args[2];
+            create_or_replace_file(
+                destination,
+                generate_new_lines(file_text.lines().collect()).join("\n"),
+            )
+        }
+        _ => create_or_replace_file(
+            file_name,
+            generate_new_lines(file_text.lines().collect()).join("\n"),
+        ),
+    }
 }
