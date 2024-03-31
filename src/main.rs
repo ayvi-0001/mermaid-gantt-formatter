@@ -153,7 +153,7 @@ fn get_task_lines(lines: Vec<&str>) -> Vec<&str> {
     return task_lines;
 }
 
-fn push_task_lines(
+fn push_task_line(
     line: &str,
     map_item_lenths: &HashMap<&str, usize>,
     mut new_lines: Vec<String>,
@@ -173,6 +173,7 @@ fn push_task_lines(
         map_item_lenths.clone(),
     );
     // Indent task titles 2 levels.
+    // Format commented out tasks so that they align with other tasks, but keep them as comments.
     if task_line.starts_with("%%") {
         let comment_task_split: Vec<&str> = task_line
             .strip_prefix("%%")
@@ -189,6 +190,13 @@ fn push_task_lines(
     } else {
         new_lines.push(format!("    {}", task_line));
     }
+    return new_lines;
+}
+
+fn push_section_line(line: &str, mut new_lines: Vec<String>) -> Vec<String> {
+    // Add section titles indented 1 level with 1 leading newline.
+    let section_title: &str = line.strip_prefix("section").unwrap().trim();
+    new_lines.push(String::from(format!("\n  section {}", section_title)));
     return new_lines;
 }
 
@@ -280,9 +288,9 @@ fn create_or_replace_file(file_name: &String, contents: String) -> std::io::Resu
     Ok(())
 }
 
-type MapIter<'l> = Map<IntoIter<&'l str>, for<'a> fn(&'a str) -> &'a str>;
+type MapIntoIter<'l> = Map<IntoIter<&'l str>, for<'a> fn(&'a str) -> &'a str>;
 
-fn line_is_before_section(line: &str, idx: usize, c_map_lines: &MapIter) -> bool {
+fn line_is_empty_before_section(line: &str, idx: usize, c_map_lines: &MapIntoIter) -> bool {
     return line.is_empty()
         && c_map_lines.clone().collect::<Vec<_>>()[idx.add(1)].contains("section");
 }
@@ -296,34 +304,35 @@ fn line_is_task(line: &str) -> bool {
 }
 
 fn line_is_title(line: &str) -> bool {
-    // Add gantt title at top of file with no indent and add any commented lines that are not tasks.
     return line.starts_with("gantt") || (line.starts_with("%%") && !line.contains(":"));
 }
 
 fn generate_new_lines(lines: Vec<&str>) -> Vec<String> {
     let mut new_lines: Vec<String> = vec![];
     let map_item_lenths: HashMap<&str, usize> = get_max_item_lengths(TASK_TAGS, lines.clone());
-    let map_lines: MapIter = lines.into_iter().map(str::trim);
-    let c_map_lines: MapIter = map_lines.clone();
+    let map_lines: MapIntoIter = lines.into_iter().map(str::trim);
+    let c_map_lines: MapIntoIter = map_lines.clone();
 
     for (_idx, line) in map_lines.enumerate() {
         if line_is_title(line) {
+            // Add gantt title at top with no indent/any commented, non-task lines.
             new_lines.push(String::from(line));
-        } else if line_is_before_section(line, _idx, &c_map_lines) {
-            new_lines.push(String::new());
         } else if line_is_keyword(line) {
-            new_lines.push(format!("  {}", line)); // Add any remaining keyword lines idented 1 level.
+            // Add any remaining keyword lines idented 1 level.
+            new_lines.push(format!("  {}", line));
+        } else if line_is_empty_before_section(line, _idx, &c_map_lines) {
+            // Ignore all empty lines if before section, leading newline will be add with section keyword.
+            continue;
         } else if line.contains("section") {
-            new_lines.push(String::from(format!("  {}", line))); // Indent sections 1 level.
+            new_lines = push_section_line(line, new_lines);
         } else if line_is_task(line) {
-            new_lines = push_task_lines(line, &map_item_lenths, new_lines);
+            new_lines = push_task_line(line, &map_item_lenths, new_lines);
         } else if !line.is_empty() {
-            // For any uncaught scenarios, add the line as is.
+            // For any remaining scenarios not caught above, add the line as is.
             new_lines.push(String::from(line));
         }
     }
-    // Add 1 empty line at end of file.
-    new_lines.push(String::new());
+    new_lines.push(String::new()); // Add 1 empty line at end of file.
     return new_lines;
 }
 
