@@ -1,6 +1,6 @@
 # windows
 cargo build --release --target x86_64-pc-windows-msvc
-chmod +x target/x86_64-pc-windows-msvc/release/fmt-mmd-gan.exett
+chmod +x target/x86_64-pc-windows-msvc/release/fmt-mmd-gantt.exe
 mv target/x86_64-pc-windows-msvc/release/fmt-mmd-gantt.exe .
 
 # linux
