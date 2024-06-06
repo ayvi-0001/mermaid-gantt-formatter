@@ -1,6 +1,6 @@
-# Formatter for Mermaid Gantt Charts.
+# Formatter for Mermaid Gantt Charts
 
-### Before
+## Before
 
 ```mmd
 %% timeline.mmd
@@ -33,31 +33,33 @@ gantt
     Add another diagram to demo page    :48h
 ```
 
-### Build
+## Build
 
 ```sh
 # windows
 cargo build --release --target x86_64-pc-windows-msvc
 chmod +x target/x86_64-pc-windows-msvc/release/fmt-mmd-gantt.exe
 mv target/x86_64-pc-windows-msvc/release/fmt-mmd-gantt.exe .
-```
 
-```sh
 # linux
 cargo build --release --target x86_64-unknown-linux-gnu
 chmod +x target/x86_64-unknown-linux-gnu/release/fmt-mmd-gantt
 mv target/x86_64-unknown-linux-gnu/release/fmt-mmd-gantt .
 ```
 
-### Run
+## Run
 
 ```shell
+# windows
 ./fmt-mmd-gantt.exe timeline.mmd # edited in-place
-./fmt-mmd-gantt.exe timeline.mmd new.mmd # write to destination
-#    remove .exe ^ if linux
+./fmt-mmd-gantt.exe timeline.mmd out.mmd # write to destination
+
+# linux
+./fmt-mmd-gantt timeline.mmd
+./fmt-mmd-gantt timeline.mmd out.mmd
 ```
 
-### After
+## After
 
 ```mmd
 gantt

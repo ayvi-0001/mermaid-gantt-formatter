@@ -291,8 +291,14 @@ fn create_or_replace_file(file_name: &String, contents: String) -> std::io::Resu
 type MapIntoIter<'l> = Map<IntoIter<&'l str>, for<'a> fn(&'a str) -> &'a str>;
 
 fn line_is_empty_before_section(line: &str, idx: usize, c_map_lines: &MapIntoIter) -> bool {
-    return line.is_empty()
-        && c_map_lines.clone().collect::<Vec<_>>()[idx.add(1)].contains("section");
+    let next_line: Vec<&str> = Some(c_map_lines.clone().collect::<Vec<_>>()).unwrap_or_default();
+    if (idx + 1).lt(&next_line.len()) {
+        return !next_line.is_empty()
+            && line.is_empty()
+            && next_line[idx.add(1)].contains("section");
+    } else {
+        return false;
+    }
 }
 
 fn line_is_keyword(line: &str) -> bool {
@@ -303,8 +309,16 @@ fn line_is_task(line: &str) -> bool {
     return line.contains(":");
 }
 
+fn line_is_commented_section(line: &str) -> bool {
+    line.starts_with("%%") && line.contains("section")
+}
+
+fn line_is_comment(line: &str) -> bool {
+    line.starts_with("%%") && !line.contains(":")
+}
+
 fn line_is_title(line: &str) -> bool {
-    return line.starts_with("gantt") || (line.starts_with("%%") && !line.contains(":"));
+    return line.starts_with("gantt");
 }
 
 fn generate_new_lines(lines: Vec<&str>) -> Vec<String> {
@@ -315,21 +329,22 @@ fn generate_new_lines(lines: Vec<&str>) -> Vec<String> {
 
     for (_idx, line) in map_lines.enumerate() {
         if line_is_title(line) {
-            // Add gantt title at top with no indent/any commented, non-task lines.
-            new_lines.push(String::from(line));
+            new_lines.push(String::from(line)); // Add gantt title at top with no indent/any commented, non-task lines.
         } else if line_is_keyword(line) {
-            // Add any remaining keyword lines idented 1 level.
-            new_lines.push(format!("  {}", line));
+            new_lines.push(format!("  {}", line)); // Add any remaining keyword lines idented 1 level.
+        } else if line_is_commented_section(line) {
+            new_lines.push(String::new());
+            new_lines.push(String::from(line));
+        } else if line_is_comment(line) {
+            new_lines.push(String::from(line));
         } else if line_is_empty_before_section(line, _idx, &c_map_lines) {
-            // Ignore all empty lines if before section, leading newline will be add with section keyword.
-            continue;
+            continue; // Ignore all empty lines if before section.
         } else if line.contains("section") {
             new_lines = push_section_line(line, new_lines);
         } else if line_is_task(line) {
             new_lines = push_task_line(line, &map_item_lenths, new_lines);
         } else if !line.is_empty() {
-            // For any remaining scenarios not caught above, add the line as is.
-            new_lines.push(String::from(line));
+            new_lines.push(String::from(line)); // Add remaining lines as is.
         }
     }
     new_lines.push(String::new()); // Add 1 empty line at end of file.
