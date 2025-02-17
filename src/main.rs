@@ -95,9 +95,7 @@ fn push_tags_to_task_line(mut task_line: String, task_tags: &Vec<&str>) -> Strin
 /// Max lengths for start and end paramaters are used instead of assuming the default dateFormat to account for the possibility
 /// that the keywords `after <otherTaskId>` or `until <otherTaskId>` may be used, and these lengths may differ from the default dateFormat config.
 fn push_udis_to_task_line(
-    mut task_line: String,
-    task_udis: &Vec<&str>,
-    map_item_lenths: HashMap<&str, usize>,
+    mut task_line: String, task_udis: &Vec<&str>, map_item_lenths: HashMap<&str, usize>,
 ) -> String {
     let max_len_task_id: &usize = map_item_lenths.get("max_len_task_id").unwrap();
     let max_len_start: &usize = map_item_lenths.get("max_len_start").unwrap();
@@ -143,20 +141,25 @@ fn push_udis_to_task_line(
 
 fn get_task_lines(lines: Vec<&str>) -> Vec<&str> {
     let mut task_lines: Vec<&str> = vec![];
-    for line in lines.iter().cloned().map(str::trim).filter(|&line| {
-        !MMD_GANTT_KWS.iter().any(|&tag| line.contains(tag))
-            && !line.starts_with("%%")
-            && line.contains(":")
-    }) {
+    for line in lines
+        .iter()
+        .cloned()
+        .map(str::trim)
+        .filter(|&line| {
+            !MMD_GANTT_KWS
+                .iter()
+                .any(|&tag| line.contains(tag))
+                && !line.starts_with("%%")
+                && line.contains(":")
+        })
+    {
         task_lines.push(line);
     }
     return task_lines;
 }
 
 fn push_task_line(
-    line: &str,
-    map_item_lenths: &HashMap<&str, usize>,
-    mut new_lines: Vec<String>,
+    line: &str, map_item_lenths: &HashMap<&str, usize>, mut new_lines: Vec<String>,
 ) -> Vec<String> {
     let task_split: Vec<&str> = line.split(":").map(str::trim).collect();
     let mut task_line: String = String::from(task_split[0]);
@@ -196,7 +199,10 @@ fn push_task_line(
 fn push_section_line(line: &str, mut new_lines: Vec<String>) -> Vec<String> {
     // Add section titles indented 1 level with 1 leading newline.
     let section_title: &str = line.strip_prefix("section").unwrap().trim();
-    new_lines.push(String::from(format!("\n  section {}", section_title)));
+    new_lines.push(String::from(format!(
+        "\n  section {}",
+        section_title
+    )));
     return new_lines;
 }
 
@@ -237,17 +243,32 @@ fn get_max_item_lengths<'a>(tags: [&str; 4], lines: Vec<&'a str>) -> HashMap<&'a
     }
 
     let mut map_item_lenths: HashMap<&str, usize> = HashMap::new();
-    map_item_lenths.insert("max_len_title", _get_count(find_longest_string(&titles)));
-    map_item_lenths.insert("max_len_task_id", _get_count(find_longest_string(&ids)));
-    map_item_lenths.insert("max_len_start", _get_count(find_longest_string(&starts)));
-    map_item_lenths.insert("max_len_end", _get_count(find_longest_string(&ends)));
+    map_item_lenths.insert(
+        "max_len_title",
+        _get_count(find_longest_string(&titles)),
+    );
+    map_item_lenths.insert(
+        "max_len_task_id",
+        _get_count(find_longest_string(&ids)),
+    );
+    map_item_lenths.insert(
+        "max_len_start",
+        _get_count(find_longest_string(&starts)),
+    );
+    map_item_lenths.insert(
+        "max_len_end",
+        _get_count(find_longest_string(&ends)),
+    );
 
     return map_item_lenths;
 }
 
 fn split_meta_tags<'a>(tags: [&str; 4], metadata: &'a str) -> HashMap<String, Vec<&'a str>> {
     let meta_items: Map<Split<'_, &str>, fn(&str) -> &str> = metadata.split(",").map(str::trim);
-    let task_tags: Vec<&str> = meta_items.clone().filter(|&x| !x.is_empty()).collect();
+    let task_tags: Vec<&str> = meta_items
+        .clone()
+        .filter(|&x| !x.is_empty())
+        .collect();
     let task_udis: Vec<&str> = meta_items
         .clone()
         .filter(|&line| !line.is_empty() && !tags.contains(&line))
@@ -302,7 +323,9 @@ fn line_is_empty_before_section(line: &str, idx: usize, c_map_lines: &MapIntoIte
 }
 
 fn line_is_keyword(line: &str) -> bool {
-    return MMD_GANTT_KWS.iter().any(|&tag| line.starts_with(tag));
+    return MMD_GANTT_KWS
+        .iter()
+        .any(|&tag| line.starts_with(tag));
 }
 
 fn line_is_task(line: &str) -> bool {
