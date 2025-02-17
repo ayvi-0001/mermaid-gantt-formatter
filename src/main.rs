@@ -14,9 +14,13 @@
 ///
 /// Mermaid Gantt diagram Documentation https://mermaid.js.org/syntax/gantt.html#gantt-diagrams
 ///
+extern crate clap;
+
+use clap::{Arg, ArgAction, ArgMatches, Command};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
+use std::io::{self, BufRead};
 use std::iter::Map;
 use std::ops::Add;
 use std::str::Split;
@@ -378,26 +382,84 @@ fn generate_new_lines(lines: Vec<&str>) -> Vec<String> {
     return new_lines;
 }
 
-/// First arg = file to read.
-/// Second arg = file to write to.
-/// If only the first arg is provided, then file is edited in-place.
-fn main() -> std::io::Result<()> {
-    let args: Vec<String> = std::env::args().collect();
-    let file_name: &String = &args[1];
-    let file_text: String =
-        std::fs::read_to_string(file_name).expect(&format!("Could not read file {}", file_name));
+#[allow(dead_code)]
+fn read_stdin() -> std::io::Result<String> {
+    let mut buffer: String = String::new();
+    std::io::stdin().read_line(&mut buffer)?;
+    Ok(buffer)
+}
 
-    match &args.len() {
-        3 => {
-            let destination: &String = &args[2];
+enum InputSource {
+    Stdin(io::Stdin),
+    File(File),
+}
+
+impl io::Read for InputSource {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        match self {
+            InputSource::Stdin(s) => s.read(buf),
+            InputSource::File(f) => f.read(buf),
+        }
+    }
+}
+
+fn main() -> std::io::Result<()> {
+    let arg_matches: ArgMatches = Command::new("fmt-mmd-gantt")
+        .arg(
+            Arg::new("input")
+                .short('i')
+                .long("input")
+                .required(true)
+                .value_name("INPUT")
+                .action(ArgAction::Set),
+        )
+        .arg(
+            Arg::new("output")
+                .short('o')
+                .long("output")
+                .value_name("OUTPUT")
+                .action(ArgAction::Set),
+        )
+        .get_matches();
+
+    let input: Option<&String> = arg_matches.get_one::<String>("input");
+    let output: Option<&String> = arg_matches.get_one::<String>("output");
+
+    let input_source: InputSource = if input.unwrap() == "-" {
+        InputSource::Stdin(io::stdin())
+    } else {
+        InputSource::File(File::open(input.unwrap())?)
+    };
+
+    let buffered_input_source: std::io::BufReader<InputSource> =
+        std::io::BufReader::new(input_source);
+
+    let mut output_text: String = String::new();
+
+    for line in buffered_input_source.lines() {
+        output_text.push_str(&line.unwrap());
+        output_text.push_str("\n");
+    }
+
+    let output_formatted: Vec<&str> = output_text.lines().collect();
+
+    if output.is_none() {
+        if input.unwrap().eq("-") {
+            println!(
+                "{}",
+                generate_new_lines(output_formatted).join("\n")
+            );
+            Ok(())
+        } else {
             create_or_replace_file(
-                destination,
-                generate_new_lines(file_text.lines().collect()).join("\n"),
+                input.unwrap(),
+                generate_new_lines(output_formatted).join("\n"),
             )
         }
-        _ => create_or_replace_file(
-            file_name,
-            generate_new_lines(file_text.lines().collect()).join("\n"),
-        ),
+    } else {
+        create_or_replace_file(
+            output.unwrap(),
+            generate_new_lines(output_formatted).join("\n"),
+        )
     }
 }

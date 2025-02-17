@@ -3,7 +3,6 @@
 ## Before
 
 ```mmd
-%% gantt_chart.mmd
 gantt
     dateFormat  YYYY-MM-DD
   title       Adding GANTT diagram functionality to mermaid
@@ -36,20 +35,49 @@ gantt
     Add another diagram to demo page :48h
 ```
 
-## Build
+## Install
 
 ```sh
+cargo install --git https://github.com/ayvi-0001/mermaid-gantt-formatter
+```
+<!-- markdownlint-disable MD001 -->
+#### or build from source
+
+```sh
+git clone https://github.com/ayvi-0001/mermaid-gantt-formatter.git
+cd mermaid-gantt-formatter
 cargo build --release
+chmod +x target/release/fmt-mmd-gantt
+# (optional) add to path
+mkdir -p ~/bin
+mv target/release/fmt-mmd-gantt ~/bin/fmt-mmd-gantt
+PATH+=:~/bin
+export PATH
 ```
 
-## Run
+#### or download [release](https://github.com/ayvi-0001/mermaid-gantt-formatter/releases)
+
+## Usage
 
 ```sh
-chmod +x target/release/fmt-mmd-gantt
-mv target/release/fmt-mmd-gantt .
+# edit file in-place
+fmt-mmd-gantt --input gantt_chart.mmd
+# or
+fmt-mmd-gantt -igantt_chart.mmd
+```
 
-./fmt-mmd-gantt gantt_chart.mmd # edited in-place
-./fmt-mmd-gantt gantt_chart.mmd out.mmd # write to destination
+```sh
+# write output to file
+fmt-mmd-gantt --input gantt_chart.mmd --output out.mmd
+# or
+fmt-mmd-gantt -igantt_chart.mmd -oout.mmd
+```
+
+```sh
+# read from stdin/print to stdout
+cat gantt_chart.mmd | fmt-mmd-gantt --input -
+# or
+cat gantt_chart.mmd | fmt-mmd-gantt -i-
 ```
 
 ## After
