@@ -11,6 +11,9 @@
 ///         another task    :taskid2,after taskid1, 24d      ->    section Another
 ///                                                          ->      Task in Another  :          crit,              taskid1,  2014-01-12   ,  12d
 ///                                                          ->      another task     :                             taskid2,  after taskid1,  24d
+///
+/// Mermaid Gantt diagram Documentation https://mermaid.js.org/syntax/gantt.html#gantt-diagrams
+///
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
@@ -19,62 +22,36 @@ use std::ops::Add;
 use std::str::Split;
 use std::vec::IntoIter;
 
-/// Required/optional keywords that may appear at the top of a gantt .mmd file or elsewhere.
-/// Note: this list is not inclusive. This script doesn't currently account for YAML frontmatter. https://mermaid.js.org/config/configuration.html#frontmatter-config
-const MMD_GANTT_KWS: [&str; 22] = [
-    "gantt",
-    "title",
-    "excludes",
-    "dateFormat",
-    "todayMarker",
-    "titleTopMargin",
-    "barHeight",
-    "barGap",
-    "topPadding",
-    "rightPadding",
-    "leftPadding",
-    "gridLineStartPadding",
-    "fontSize",
-    "sectionFontSize",
-    "numberSectionStyles",
+/// Required/optional keywords that may appear at the top of a mermaid gantt file or elsewhere.
+/// Note: this is not an exhaustive list. This script doesn't currently account for YAML frontmatter. https://mermaid.js.org/config/configuration.html#frontmatter-config
+const MMD_GANTT_KWS: [&str; 23] = [
     "axisFormat",
-    "tickInterval",
-    "topAxis",
-    "displayMode",
-    "weekday",
-    "mirrorActor",
+    "barGap",
+    "barHeight",
     "bottomMarginAdj",
+    "dateFormat",
+    "displayMode",
+    "excludes",
+    "fontSize",
+    "gantt",
+    "gridLineStartPadding",
+    "leftPadding",
+    "mirrorActor",
+    "numberSectionStyles",
+    "rightPadding",
+    "sectionFontSize",
+    "tickInterval",
+    "title",
+    "titleTopMargin",
+    "todayMarker",
+    "topAxis",
+    "topPadding",
+    "weekday",
+    "weekend",
 ];
 
-/// Optional metadata tags available to mmd gantt charts.
+/// Optional metadata tags available.
 const TASK_TAGS: [&str; 4] = ["done", "active", "crit", "milestone"];
-
-/// A colon, :, separates the task title from its metadata.
-/// Metadata items are separated by a comma, ,. Valid tags are active, done, crit, and milestone.
-/// Tags are optional, but if used, they must be specified first. After processing the tags,
-/// the remaining metadata items are interpreted following the defintions under fn push_udis_to_task_line
-/// All final else statements add padding for when the tag is not provided. E.g. `&" ".repeat(x)`.
-fn push_tags_to_task_line(mut task_line: String, task_tags: &Vec<&str>) -> String {
-    // active and done tags both take the first column, as only one should be included at a time.
-    if task_tags.contains(&"active") {
-        task_line.push_str("active,  ");
-    } else if task_tags.contains(&"done") {
-        task_line.push_str("done  ,  ");
-    } else {
-        task_line.push_str(&" ".repeat(9));
-    }
-    if task_tags.contains(&"crit") {
-        task_line.push_str("crit,  ");
-    } else {
-        task_line.push_str(&" ".repeat(7));
-    }
-    if task_tags.contains(&"milestone") {
-        task_line.push_str("milestone,  ");
-    } else {
-        task_line.push_str(&" ".repeat(12));
-    }
-    return task_line;
-}
 
 /// udis = user defined items.
 /// These are referring to metadata tags outside of the default tags [active, done, crit, and milestone].
@@ -136,6 +113,33 @@ fn push_udis_to_task_line(
         _ => {}
     }
 
+    return task_line;
+}
+
+/// A colon (`:`) separates the task title from its metadata.
+/// Metadata items are separated by a comma. Valid tags are active, done, crit, and milestone.
+/// Tags are optional, but if used, they must be specified first. After processing the tags,
+/// the remaining metadata items are interpreted following the defintions under fn push_udis_to_task_line
+/// All final else statements add padding for when the tag is not provided. E.g. `&" ".repeat(x)`.
+fn push_tags_to_task_line(mut task_line: String, task_tags: &Vec<&str>) -> String {
+    // active and done tags both take the first column, as only one should be included at a time.
+    if task_tags.contains(&"active") {
+        task_line.push_str("active,  ");
+    } else if task_tags.contains(&"done") {
+        task_line.push_str("done  ,  ");
+    } else {
+        task_line.push_str(&" ".repeat(9));
+    }
+    if task_tags.contains(&"crit") {
+        task_line.push_str("crit,  ");
+    } else {
+        task_line.push_str(&" ".repeat(7));
+    }
+    if task_tags.contains(&"milestone") {
+        task_line.push_str("milestone,  ");
+    } else {
+        task_line.push_str(&" ".repeat(12));
+    }
     return task_line;
 }
 
