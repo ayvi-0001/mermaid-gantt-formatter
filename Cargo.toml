@@ -1,11 +1,16 @@
 [package]
 name = "fmt-mmd-gantt"
-version = "0.2.1"
+version = "0.3.0-alpha"
 edition = "2024"
 build = "src/build.rs"
 
 [dependencies]
 clap = { version = "4.5.30", features = ["derive", "string"] }
+strum = { version = "0.27.1", features = ["derive"] }
+strum_macros = "0.27.1"
+
+[dev-dependencies]
+indoc = "2.0.6"
 
 [build-dependencies]
 vergen-gitcl = { version = "1.0.8", features = ["rustc"] }
