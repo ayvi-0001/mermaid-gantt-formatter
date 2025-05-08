@@ -403,8 +403,29 @@ impl io::Read for InputSource {
     }
 }
 
+struct Version {}
+
+impl Version {
+    fn short() -> String {
+        env!("CARGO_PKG_VERSION").to_string()
+    }
+
+    fn long() -> String {
+        format!(
+            "{} ({} {})\ntriple: {}\nrustc: {}",
+            env!("CARGO_PKG_VERSION"),
+            env!("VERGEN_GIT_SHA"),
+            env!("VERGEN_GIT_COMMIT_DATE"),
+            env!("VERGEN_RUSTC_HOST_TRIPLE"),
+            env!("VERGEN_RUSTC_SEMVER"),
+        )
+    }
+}
+
 fn main() -> std::io::Result<()> {
     let arg_matches: ArgMatches = Command::new("fmt-mmd-gantt")
+        .version(Version::short())
+        .long_version(Version::long())
         .arg(
             Arg::new("input")
                 .short('i')
