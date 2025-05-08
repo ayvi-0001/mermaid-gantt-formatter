@@ -9,7 +9,7 @@ pub fn build() -> Command {
         .long_version(Version::long())
         .args(&[
             arg!(-i --input "Path to file, '-' for stdin.")
-                .required(true)
+                .default_value("-")
                 .action(ArgAction::Set),
             arg!(-o --output "Path to write to. Prints to stdout if none.")
                 .required(false)
