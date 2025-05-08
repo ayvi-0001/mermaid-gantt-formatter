@@ -1,17 +1,4 @@
-/// Formatter for Mermaid Gantt Charts. Example:
-/// gantt                                                    ->  gantt
-///     title A Gantt Diagram                                ->    title A Gantt Diagram
-///     dateFormat YYYY-MM-DD                                ->    dateFormat YYYY-MM-DD
-///     section Section                                      ->
-///         A task          :done, a1, 2014-01-01, 30d       ->    section Section
-///         Another task    :active, a2, after a1, 20d       ->      A task           : done  ,                     a1     ,  2014-01-01   ,  30d
-///         A milestone : milestone, after a2                ->      Another task     : active,                     a2     ,  after a1     ,  20d
-///     section Another                                      ->      A milestone      :                 milestone,                            after a2
-///         Task in Another :crit,taskid1,2014-01-12, 12d    ->
-///         another task    :taskid2,after taskid1, 24d      ->    section Another
-///                                                          ->      Task in Another  :          crit,              taskid1,  2014-01-12   ,  12d
-///                                                          ->      another task     :                             taskid2,  after taskid1,  24d
-///
+/// Formatter for Mermaid Gantt Charts.
 /// Mermaid Gantt diagram Documentation https://mermaid.js.org/syntax/gantt.html#gantt-diagrams
 mod cli;
 mod format;
