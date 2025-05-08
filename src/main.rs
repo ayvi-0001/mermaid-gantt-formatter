@@ -24,13 +24,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .get_one::<String>("input")
         .expect("input is required.");
 
-    let output = args.get_one::<String>("output");
+    let mut output = args.get_one::<String>("output");
 
     let input_source = if input.eq("-") {
         format::InputSource::Stdin(cli::read_stdin(&cmd))
     } else {
         format::InputSource::File(std::fs::File::open(input)?)
     };
+
+    if let format::InputSource::File(_) = input_source {
+        if output.is_none() && args.get_flag("in-place") {
+            output = Some(input);
+        }
+    }
 
     let mut input_text = String::new();
     format::read_input_to_string(input_source, &mut input_text)?;

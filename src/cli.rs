@@ -14,6 +14,9 @@ pub fn build() -> Command {
             arg!(-o --output "Path to write to. Prints to stdout if none.")
                 .required(false)
                 .action(ArgAction::Set),
+            arg!(-I --"in-place" "Format the input file in-place.")
+                .requires("input")
+                .action(ArgAction::SetTrue),
         ])
 }
 
