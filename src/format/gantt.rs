@@ -7,7 +7,7 @@ use std::{fmt, iter};
 
 use strum::{EnumIter, IntoEnumIterator, IntoStaticStr};
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct GanttChart {
     attributes: Vec<GanttAttr>,
     sections: Vec<Section>,
@@ -19,7 +19,7 @@ impl GanttChart {
     pub fn new() -> GanttChart {
         let mut comment_map: HashMap<String, VecDeque<Comment>> = HashMap::new();
         comment_map.insert("comments".to_string(), VecDeque::new());
-        GanttChart { comment_map, ..Default::default() }
+        GanttChart { comment_map, ..Self::default() }
     }
 
     pub fn parse_text(&mut self, text: &str) -> Result<(), &str> {
@@ -68,11 +68,9 @@ impl GanttChart {
         if let Some(section) = self.get_current_section() {
             section.push_task(task);
         } else {
-            eprintln!(
-                "Tasks must be under a section: {}",
-                task.description
-            );
-            std::process::exit(2) // TODO return original text
+            let mut top_section = Section::hidden();
+            top_section.push_task(task);
+            self.push_section(top_section);
         }
     }
 
@@ -257,7 +255,7 @@ struct ParsedLine {
 
 impl ParsedLine {
     fn new(line: &str) -> ParsedLine {
-        let mut parsed_line = ParsedLine::default();
+        let mut parsed_line = Self::default();
 
         let trimmed_text = String::from(line).trim_ascii().to_string();
 
@@ -302,24 +300,25 @@ impl ParsedLine {
 enum Indent {
     Half,
     Full,
-    Double,
+    Ratio(f32),
 }
 
 impl Indent {
-    const SPACES: usize = 2;
+    const SPACES: i32 = 2;
 }
 
 impl fmt::Display for Indent {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Half => {
-                write!(f, "{}", " ".repeat(Self::SPACES.div(2)))
+                write!(f, "{}", " ".repeat(Self::SPACES.div(2) as usize))
             }
             Self::Full => {
-                write!(f, "{}", " ".repeat(Self::SPACES))
+                write!(f, "{}", " ".repeat(Self::SPACES as usize))
             }
-            Self::Double => {
-                write!(f, "{}", " ".repeat(Self::SPACES.mul(2)))
+            Self::Ratio(ratio) => {
+                let base = Mul::mul(Self::SPACES as f32, ratio);
+                write!(f, "{}", " ".repeat(base as usize))
             }
         }
     }
@@ -355,6 +354,7 @@ enum OptionalAttr {
     weekend,
 }
 
+#[derive(Debug)]
 struct GanttAttr {
     attr: String,
     text: String,
@@ -396,6 +396,7 @@ impl GanttAttr {
     }
 }
 
+#[derive(Debug)]
 struct Comment {
     text: String,
 }
@@ -416,7 +417,7 @@ impl Comment {
 /// Struct to store max lengths of task attributes.
 /// Don't need length of end date as it'll always be the right most attr,
 /// and won't determine the column length for any other task.
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct TaskPadding {
     len_desc: usize,
     len_id: usize,
@@ -424,7 +425,7 @@ struct TaskPadding {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Default, IntoStaticStr)]
+#[derive(Debug, Default, IntoStaticStr)]
 enum TaskStatus {
     active,
     done,
@@ -459,7 +460,7 @@ enum TaskTags {
     milestone,
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct Task {
     id: String,
     description: String,
@@ -474,7 +475,7 @@ struct Task {
 
 impl Task {
     fn new(text: &str, is_comment: bool) -> Task {
-        let mut task = Task { is_comment, ..Task::default() };
+        let mut task = Task { is_comment, ..Self::default() };
 
         let text = String::from(text);
 
@@ -552,7 +553,7 @@ impl Task {
         task
     }
 
-    fn format(&self, task_lengths: &TaskPadding) -> String {
+    fn format(&self, task_lengths: &TaskPadding, indent_ratio: Option<f32>) -> String {
         let mut display = String::default();
 
         if !self.comments.is_empty() {
@@ -561,21 +562,24 @@ impl Task {
             }
         }
 
-        // Even without any attributes/dates, need at least 1 empty space after the semicolon.
+        let ratio = indent_ratio.unwrap_or(1.0);
+        let padding =
+            &(task_lengths.len_desc + ((if ratio != 1.0 { ratio.mul(4.0) } else { 0.0 }) as usize));
+
         if !self.is_comment {
             display.push_str(&format!(
                 "{}{}{} : ",
-                Indent::Double,
+                Indent::Ratio(ratio.mul(2.0)),
                 self.description,
-                pad_string(&self.description, &task_lengths.len_desc),
+                pad_string(&self.description, padding),
             ));
         } else {
             display.push_str(&format!(
                 "{}{}{}{} : ",
                 Comment::TOKEN,
-                Indent::Full,
+                Indent::Ratio(ratio),
                 self.description,
-                pad_string(&self.description, &task_lengths.len_desc),
+                pad_string(&self.description, padding),
             ));
         }
 
@@ -626,16 +630,25 @@ impl Task {
     }
 }
 
+#[derive(Debug, Default)]
 struct Section {
     name: String,
     tasks: Vec<Rc<RefCell<Task>>>,
     is_comment: bool,
+    is_hidden: bool,
     comments: Vec<Comment>,
 }
 
 impl Section {
     fn new(name: String, is_comment: bool) -> Section {
-        Section { name, tasks: Vec::new(), is_comment, comments: Vec::new() }
+        Section { name, is_comment, ..Self::default() }
+    }
+
+    /// This constructor is used for when a diagram has tasks at the top of the file that are not under a section.
+    /// When formatted, this section will not display a "section: {title}" line, and tasks under it will be indented once,
+    /// instead of indented twice like tasks under normal sections are.
+    fn hidden() -> Section {
+        Section { name: "".to_owned(), is_hidden: true, ..Self::default() }
     }
 
     fn push_task(&mut self, task: Task) {
@@ -660,20 +673,23 @@ impl Section {
             }
         };
 
-        if !self.is_comment {
-            display.push_str(&format!("{}{}\n", Indent::Full, self.name));
-        } else {
-            display.push_str(&format!(
-                "{}{}{}\n",
-                Comment::TOKEN,
-                Indent::Half,
-                self.name
-            ));
-        }
+        if !self.is_hidden {
+            if !self.is_comment {
+                display.push_str(&format!("{}{}\n", Indent::Full, self.name));
+            } else {
+                display.push_str(&format!(
+                    "{}{}{}\n",
+                    Comment::TOKEN,
+                    Indent::Half,
+                    self.name
+                ));
+            }
+        };
 
+        let indent_ratio = if self.is_hidden { Some(0.5) } else { None };
         for task in &self.tasks {
             let task_ref = task.borrow();
-            display.push_str(&task_ref.format(task_lengths));
+            display.push_str(&task_ref.format(task_lengths, indent_ratio));
             display.push('\n');
         }
 
@@ -986,6 +1002,88 @@ mod tests {
 
               section One
                 a task : 
+            "
+        };
+
+        let mut gantt_chart = GanttChart::new();
+        gantt_chart
+            .parse_text(input_text)
+            .expect("input_text should be a valid diagram.");
+        assert_eq!(gantt_chart.to_string(), expected_output)
+    }
+
+    #[test]
+    fn invalid_diagram() {
+        let input_text: &str = "some random text";
+        let mut gantt_chart = GanttChart::new();
+        assert!(gantt_chart.parse_text(input_text).is_err());
+    }
+
+    /// Tasks without a section at the top should line up with any additional tasks in following sections.
+    #[test]
+    fn top_tasks_no_section() {
+        let input_text = indoc! {"\
+            gantt
+            dateFormat YYYY-MM-DD
+
+            a task under no section : 
+
+            section 1
+            a task under section 1 :
+            section 2
+            %% a commented task under section 2 :
+
+            section 3
+            a task under section 3 with the longest title :
+            "
+        };
+        let expected_output = indoc! {"\
+            gantt
+              dateFormat YYYY-MM-DD
+
+              a task under no section                         : 
+
+              section 1
+                a task under section 1                        : 
+
+              section 2
+            %%  a commented task under section 2              : 
+
+              section 3
+                a task under section 3 with the longest title : 
+            "
+        };
+        let mut gantt_chart = GanttChart::new();
+        gantt_chart
+            .parse_text(input_text)
+            .expect("input_text should be a valid diagram.");
+        assert_eq!(gantt_chart.to_string(), expected_output)
+    }
+
+    #[test]
+    fn top_section_and_tasks_commented() {
+        let input_text = indoc! {"\
+            gantt
+              dateFormat YY-MM-DD
+              axisFormat %y-%W
+              tickInterval 1week
+            %% section One
+            %%  a task : done,  t1, 25-10-25        ,  1d
+            section Two
+            another task: active, after t1, 365d
+            "
+        };
+        let expected_output = indoc! {"\
+            gantt
+              dateFormat YY-MM-DD
+              axisFormat %y-%W
+              tickInterval 1week
+
+            %% section One
+            %%  a task       : done  ,                  t1, 25-10-25, 1d
+
+              section Two
+                another task : active,                      after t1, 365d
             "
         };
 
