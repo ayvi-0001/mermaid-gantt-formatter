@@ -280,7 +280,7 @@ impl ParsedLine {
         });
         let next_line_is_section = next.is_some_and(|(_, l)| l.is_section());
 
-        if next_line_is_section && !starts_with_attr {
+        if (next_line_is_section || self.is_section()) && !starts_with_attr {
             false
         // Chart attributes must be before sections.
         } else if sections.is_empty() {
@@ -902,16 +902,17 @@ mod tests {
             gantt
             %% A comment for an attribute.
             dateFormat YYYY-MM-DD
-            %% A comment for the 1st section.
-            section One
-            a task :
-            %% A comment for the 2nd. section.
-            %% Another comment for the 2nd section.
+            %% A comment for a commented section.
+            %% section Commented
+            %% a commented task in a commented section :
+
+            %% A comment for the next section.
             section Next
+            a task :
+            %% A comment for the last section.
+            %% Another comment for the last section.
+            section Last
             another task :
-            %% A section comment for a commented section.
-            %%section Commented
-            a task in a commented section : done, 2025-01-01, 30d
             "
         };
         let expected_output = indoc! {"\
@@ -919,18 +920,18 @@ mod tests {
               %% A comment for an attribute.
               dateFormat YYYY-MM-DD
 
-            %% A comment for the 1st section.
-              section One
-                a task                        : 
-
-            %% A comment for the 2nd. section.
-            %% Another comment for the 2nd section.
-              section Next
-                another task                  : 
-
-            %% A section comment for a commented section.
+            %% A comment for a commented section.
             %% section Commented
-                a task in a commented section : done  ,                    2025-01-01, 30d
+            %%  a commented task in a commented section : 
+
+            %% A comment for the next section.
+              section Next
+                a task                                  : 
+
+            %% A comment for the last section.
+            %% Another comment for the last section.
+              section Last
+                another task                            : 
             "
         };
 
