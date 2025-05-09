@@ -93,15 +93,15 @@ impl GanttChart {
 
     /// Get the length of the longest string for task attributes.
     fn get_task_lengths(&self) -> TaskPadding {
-        let mut longest_desc: usize = 0;
+        let mut longest_title: usize = 0;
         let mut longest_id: usize = 0;
         let mut longest_start_date: usize = 0;
 
         for task in self.iterate_tasks() {
             let task_ref = task.borrow();
 
-            if task_ref.description.len() > longest_desc {
-                longest_desc = task_ref.description.len()
+            if task_ref.title.len() > longest_title {
+                longest_title = task_ref.title.len()
             }
             if task_ref.id.len() > longest_id {
                 longest_id = task_ref.id.len()
@@ -112,7 +112,7 @@ impl GanttChart {
         }
 
         TaskPadding {
-            len_desc: longest_desc,
+            len_title: longest_title,
             len_id: longest_id,
             len_start_date: longest_start_date,
         }
@@ -426,7 +426,7 @@ impl Comment {
 /// and won't determine the column length for any other task.
 #[derive(Debug, Default)]
 struct TaskPadding {
-    len_desc: usize,
+    len_title: usize,
     len_id: usize,
     len_start_date: usize,
 }
@@ -470,7 +470,7 @@ enum TaskTags {
 #[derive(Debug, Default)]
 struct Task {
     id: String,
-    description: String,
+    title: String,
     status: TaskStatus,
     crit: bool,
     milestone: bool,
@@ -491,7 +491,7 @@ impl Task {
             .split_once(":")
             .expect("Check for `:` happens in parsed line.");
 
-        task.description
+        task.title
             .push_str(String::from(task_split.0).trim());
 
         // Metadata items are separated by a comma. Valid tags are active, done, crit, and milestone.
@@ -546,7 +546,7 @@ impl Task {
                 // If three items are specified, the last two will be interpreted as in the previous case.
                 // The first item will denote the ID of the task, which can be referenced using the later <taskID> syntax.
                 3_usize => task.id.push_str(&p),
-                4_usize.. => panic!("Too many items for: {}", &task.description),
+                4_usize.. => panic!("Too many items for: {}", &task.title),
                 _ => break,
             }
         }
@@ -564,23 +564,23 @@ impl Task {
         }
 
         let ratio = indent_ratio.unwrap_or(1.0);
-        let padding =
-            &(task_lengths.len_desc + ((if ratio != 1.0 { ratio.mul(4.0) } else { 0.0 }) as usize));
+        let padding = &(task_lengths.len_title
+            + ((if ratio != 1.0 { ratio.mul(4.0) } else { 0.0 }) as usize));
 
         if !self.is_comment {
             display.push_str(&format!(
                 "{}{}{} : ",
                 Indent::Ratio(ratio.mul(2.0)),
-                self.description,
-                pad_string(&self.description, padding),
+                self.title,
+                pad_string(&self.title, padding),
             ));
         } else {
             display.push_str(&format!(
                 "{}{}{}{} : ",
                 Comment::TOKEN,
                 Indent::Ratio(ratio),
-                self.description,
-                pad_string(&self.description, padding),
+                self.title,
+                pad_string(&self.title, padding),
             ));
         }
 
