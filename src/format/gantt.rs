@@ -239,6 +239,13 @@ impl fmt::Display for GanttChart {
     }
 }
 
+fn consume<'a, T>(i: &mut impl Iterator<Item = &'a mut T>, v: &T) -> Option<&'a mut T>
+where
+    T: ?Sized + PartialOrd<T> + PartialEq<T>,
+{
+    i.find(|x| *x == v)
+}
+
 fn pad_string(string: &str, max_length: &usize) -> String {
     let mut padding = String::default();
     if let Some(c) = max_length.checked_sub(string.chars().count()) {
@@ -480,47 +487,17 @@ impl Task {
         let text = String::from(text);
 
         // A colon (`:`) separates the task title from its metadata.
-        // Metadata items are separated by a comma. Valid tags are active, done, crit, and milestone.
-        // Tags are optional, but if used, they must be specified first. After processing the tags,
-        // the remaining metadata items are interpreted following the defintions under fn push_udis_to_task_line
-        // All final else statements add padding for when the tag is not provided. E.g. `&" ".repeat(x)`.
-        let task_split: Vec<&str> = text.split(":").map(str::trim).collect();
+        let task_split = text
+            .split_once(":")
+            .expect("Check for `:` happens in parsed line.");
 
         task.description
-            .push_str(&String::from(task_split[0]));
+            .push_str(String::from(task_split.0).trim());
 
-        if task_split[1].contains("active") {
-            task.status = TaskStatus::active
-        } else if task_split[1].contains("done") {
-            task.status = TaskStatus::done
-        };
-
-        if task_split[1].contains("crit") {
-            task.crit = !task.crit
-        }
-        if task_split[1].contains("milestone") {
-            task.milestone = !task.milestone
-        }
-
-        // udis = user defined items.
-        // These are referring to metadata tags outside of the default tags [active, done, crit, and milestone].
-        // Possible items are taskd, startdate, & enddate.
-        //
-        // Tasks are by default sequential. A task start date defaults to the end date of the preceding task.
-        //
-        // dateFormat defines the format of the date input of your gantt elements. How these dates are represented in the rendered chart output are defined by axisFormat.
-        //
-        // If a single item is specified, it determines when the task ends. It can either be a specific date/time or a duration.
-        // If a duration is specified, it is added to the start date of the task to determine the end date of the task, taking into account any exclusions.
-        // If two items are specified, the last item is interpreted as in the previous case.
-        // The first item can either specify an explicit start date/time (in the format specified by dateFormat) or reference another task using after <otherTaskID> [[otherTaskID2 [otherTaskID3]]...].
-        // In the latter case, the start date of the task will be set according to the latest end date of any referenced task.
-        // If three items are specified, the last two will be interpreted as in the previous case.
-        // The first item will denote the ID of the task, which can be referenced using the later <taskID> syntax.
-        //
-        // Max lengths for start and end paramaters are used instead of assuming the default dateFormat to account for the possibility
-        // that the keywords `after <otherTaskId>` or `until <otherTaskId>` may be used, and these lengths may differ from the default dateFormat config.
-        let udis = task_split[1]
+        // Metadata items are separated by a comma. Valid tags are active, done, crit, and milestone.
+        // Tags are optional, but if used, they must be specified first before any ids and dates.
+        let mut task_meta = task_split
+            .1
             .split(",")
             .map(|s| {
                 // inner split whitespace is to trim extra characters
@@ -529,25 +506,49 @@ impl Task {
                     .collect::<Vec<&str>>()
                     .join(" ")
             })
-            .filter(|item| {
-                !TaskTags::iter().any(|tag| item.eq(<&TaskTags as Into<&str>>::into(&tag)))
-            })
-            .collect::<Vec<String>>();
+            .collect::<VecDeque<String>>();
 
-        match udis.len() {
-            3 => {
-                task.id.push_str(&udis[0]);
-                task.start_date.push_str(&udis[1]);
-                task.end_date.push_str(&udis[2]);
+        if consume(&mut task_meta.iter_mut(), &"active".to_string()).is_some() {
+            task.status = TaskStatus::active;
+        } else if consume(&mut task_meta.iter_mut(), &"done".to_string()).is_some() {
+            task.status = TaskStatus::done;
+        };
+
+        if consume(&mut task_meta.iter_mut(), &"crit".to_string()).is_some() {
+            task.crit = !task.crit
+        };
+        if consume(
+            &mut task_meta.iter_mut(),
+            &"milestone".to_string(),
+        )
+        .is_some()
+        {
+            task.milestone = !task.milestone
+        };
+
+        task_meta.retain(|item| {
+            !TaskTags::iter().any(|tag| item.eq(<&TaskTags as Into<&str>>::into(&tag)))
+        });
+
+        // After processing the tags, the remaining metadata items are interpreted as follows:
+        while let Some(p) = task_meta.pop_front() {
+            match task_meta.len() + 1 {
+                // If a single item is specified, it determines when the task ends.
+                // It can either be a specific date/time or a duration.
+                // If a duration is specified, it is added to the start date of the task to determine
+                // the end date of the task, taking into account any exclusions.
+                1_usize => task.end_date.push_str(&p),
+                // If two items are specified, the last item is interpreted as in the previous case.
+                // The first item can either specify an explicit start date/time (in the format specified by dateFormat)
+                // or reference another task using after <otherTaskID> [[otherTaskID2 [otherTaskID3]]...].
+                // In the latter case, the start date of the task will be set according to the latest end date of any referenced task.
+                2_usize => task.start_date.push_str(&p),
+                // If three items are specified, the last two will be interpreted as in the previous case.
+                // The first item will denote the ID of the task, which can be referenced using the later <taskID> syntax.
+                3_usize => task.id.push_str(&p),
+                4_usize.. => panic!("Too many items for: {}", &task.description),
+                _ => break,
             }
-            2 => {
-                task.start_date.push_str(&udis[0]);
-                task.end_date.push_str(&udis[1]);
-            }
-            1 => {
-                task.end_date.push_str(&udis[0]);
-            }
-            _ => {}
         }
 
         task
@@ -1051,6 +1052,38 @@ mod tests {
 
               section 3
                 a task under section 3 with the longest title : 
+            "
+        };
+        let mut gantt_chart = GanttChart::new();
+        gantt_chart
+            .parse_text(input_text)
+            .expect("input_text should be a valid diagram.");
+        assert_eq!(gantt_chart.to_string(), expected_output)
+    }
+
+    #[test]
+    fn tasks_with_time() {
+        let input_text = indoc! {"\
+            gantt
+                dateFormat HH:mm
+                axisFormat %H:%M
+                section Main
+                Initial milestone : milestone, m1, 17:49, 2m
+                Task A : 10m
+                Task B : 5m
+                Final milestone : milestone, m2, 18:08, 4m
+            "
+        };
+        let expected_output = indoc! {"\
+            gantt
+              dateFormat HH:mm
+              axisFormat %H:%M
+
+              section Main
+                Initial milestone :               milestone, m1, 17:49, 2m
+                Task A            :                              10m
+                Task B            :                              5m
+                Final milestone   :               milestone, m2, 18:08, 4m
             "
         };
         let mut gantt_chart = GanttChart::new();
