@@ -4,7 +4,7 @@ use clap::error::{ContextKind, ContextValue, ErrorKind};
 use clap::{arg, ArgAction, Command};
 
 pub fn build() -> Command {
-    Command::new("fmt-mmd-gantt")
+    Command::new(env!("CARGO_PKG_NAME"))
         .version(Version::short())
         .long_version(Version::long())
         .args(&[
@@ -23,18 +23,22 @@ pub fn build() -> Command {
 pub fn read_stdin(cmd: &Command) -> std::io::Stdin {
     let stdin = std::io::stdin();
     if stdin.is_terminal() {
-        let mut err = clap::Error::new(ErrorKind::InvalidValue).with_cmd(cmd);
-        err.insert(
-            ContextKind::InvalidArg,
-            ContextValue::String("--input".to_string()),
-        );
-        err.insert(
-            ContextKind::InvalidValue,
-            ContextValue::String("".to_string()),
-        );
-        err.exit()
+        fail("--input", "", cmd)
     }
     stdin
+}
+
+pub fn fail(arg_context: &str, value_context: &str, cmd: &Command) -> ! {
+    let mut err = clap::Error::new(ErrorKind::ValueValidation).with_cmd(cmd);
+    err.insert(
+        ContextKind::InvalidArg,
+        ContextValue::String(arg_context.to_string()),
+    );
+    err.insert(
+        ContextKind::InvalidValue,
+        ContextValue::String(value_context.to_string()),
+    );
+    err.exit()
 }
 
 struct Version {}

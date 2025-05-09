@@ -29,15 +29,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     format::read_input_to_string(input_source, &mut input_text)?;
 
     let mut gantt_chart = format::GanttChart::new();
-    gantt_chart.parse_text(&input_text);
 
-    if let Some(file_name) = output {
-        Ok(format::create_or_replace_file(
-            file_name,
-            gantt_chart.to_string(),
-        )?)
-    } else {
-        println!("{}", gantt_chart);
-        Ok(())
+    match gantt_chart.parse_text(&input_text) {
+        Err(e) => cli::fail("--input", e, &cmd),
+        Ok(_) => {
+            if let Some(file_name) = output {
+                Ok(format::create_or_replace_file(
+                    file_name,
+                    gantt_chart.to_string(),
+                )?)
+            } else {
+                println!("{}", gantt_chart);
+                Ok(())
+            }
+        }
     }
 }
