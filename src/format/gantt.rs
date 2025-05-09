@@ -614,13 +614,10 @@ impl Task {
             display.push_str(&self.end_date.to_string());
         }
 
-        display = display
-            .trim_end()
-            .trim_end_matches(",")
-            .trim_end()
-            .to_string();
+        display = display.trim_end().to_string();
 
         if display.ends_with(":") {
+            // Even without any attributes/dates, need at least 1 empty space after the colon.
             display.push(' ');
             display
         } else {
@@ -750,7 +747,7 @@ mod tests {
             %%  this task should have at least 1 white space after the colon
                 a task with no attributes          : 
             %%  this task should not end in a comma, and have no trailing whitespace
-                a task with 1 attribute            : done
+                a task with 1 attribute            : done  ,
                 a task with 'section' in the name' : 
             "
         };
@@ -779,12 +776,12 @@ mod tests {
               dateFormat YYYY-MM-DD
 
               section One
-                A task     : done
+                A task     : done  ,
 
               section NoTasks
 
               section Last
-                final task : done
+                final task : done  ,
             "
         };
 
@@ -820,7 +817,7 @@ mod tests {
         gantt_chart
             .parse_text(input_text)
             .expect("input_text should be a valid diagram.");
-        
+
         assert_eq!(
             gantt_chart
                 .to_string()
