@@ -29,10 +29,10 @@ cargo install --path .
 
 # or build
 cargo build --release
-chmod +x target/release/fmt-mmd-gantt
+chmod +x target/release/mmdc-fmt
 # (optional) add to path
 mkdir -p ~/bin
-mv target/release/fmt-mmd-gantt ~/bin/fmt-mmd-gantt
+mv target/release/mmdc-fmt ~/bin
 PATH+=:~/bin
 export PATH
 ```
@@ -41,20 +41,25 @@ export PATH
 
 ```sh
 # read from stdin (default), print to stdout
-cat gantt_chart.mmd | fmt-mmd-gantt
+cat gantt_chart.mmd | mmdc-fmt
 
 
 # read file, print to stdout
-fmt-mmd-gantt -i gantt_chart.mmd
+mmdc-fmt -i gantt_chart.mmd
 
 
 # format file in-place
-fmt-mmd-gantt -i gantt_chart.mmd -I
+mmdc-fmt -i gantt_chart.mmd -I
 
 
 # write output to new file
-fmt-mmd-gantt -i gantt_chart.mmd -o out.mmd
+mmdc-fmt -i gantt_chart.mmd -o out.mmd
 ```
+
+> [!NOTE]
+> There is an option for the 'type' of formatter to use. Currently, the only choice is `gantt`,
+> which is selected by default and can be omitted. This option only exists in case I or someone else decide
+> to add on another formatter for a different mermaid diagram.
 
 ## Example
 
