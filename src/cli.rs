@@ -1,9 +1,42 @@
-use std::io::IsTerminal;
+use crate::format::{GanttChart, MermaidDiagramFormatter};
 
-use clap::error::{ContextKind, ContextValue, ErrorKind};
-use clap::{arg, ArgAction, Command};
+use std::io::{IsTerminal, Write};
+
+use clap::{
+    arg,
+    error::{ContextKind, ContextValue, ErrorKind},
+    ArgAction, Command,
+};
+use strum::{EnumIter, IntoEnumIterator, IntoStaticStr};
+use strum_macros::AsRefStr;
+
+#[allow(non_camel_case_types)]
+#[derive(Debug, Clone, EnumIter, AsRefStr, IntoStaticStr, Default)]
+pub enum FormatOptions {
+    #[default]
+    #[strum(serialize = "gantt")]
+    gantt,
+}
+
+impl FormatOptions {
+    pub fn get(opt: &str) -> Option<impl MermaidDiagramFormatter> {
+        if let Some(formatter) = Self::iter().find(|format_type| opt.eq(format_type.as_ref())) {
+            match formatter {
+                Self::gantt => Some(GanttChart::new()),
+            }
+        } else {
+            None
+        }
+    }
+}
 
 pub fn build() -> Command {
+    let type_parser = clap::builder::PossibleValuesParser::new(
+        FormatOptions::iter()
+            .map(|s| <&FormatOptions as Into<&str>>::into(&s).to_string())
+            .collect::<Vec<String>>(),
+    );
+
     Command::new(clap::crate_name!())
         .version(Version::short())
         .long_version(Version::long())
@@ -17,7 +50,33 @@ pub fn build() -> Command {
             arg!(-I --"in-place" "Format the input file in-place.")
                 .requires("input")
                 .action(ArgAction::SetTrue),
+            arg!(-t --"type" "Formatter type.")
+                .default_value(<FormatOptions as Into<&str>>::into(
+                    FormatOptions::default(),
+                ))
+                .value_parser(type_parser)
+                .action(ArgAction::Set),
         ])
+}
+
+pub enum InputSource {
+    Stdin(std::io::Stdin),
+    File(std::fs::File),
+}
+
+impl std::io::Read for InputSource {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match self {
+            InputSource::Stdin(s) => s.read(buf),
+            InputSource::File(f) => f.read(buf),
+        }
+    }
+}
+
+pub fn create_or_replace_file(file_name: &String, contents: String) -> std::io::Result<()> {
+    let mut file = std::fs::File::create(file_name)?;
+    file.write_all(contents.as_bytes())?;
+    Ok(())
 }
 
 pub fn read_stdin(cmd: &Command) -> std::io::Stdin {

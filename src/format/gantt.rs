@@ -1,3 +1,5 @@
+use super::MermaidDiagramFormatter;
+
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::convert::Into;
@@ -15,14 +17,8 @@ pub struct GanttChart {
     unmapped_comments: VecDeque<Comment>,
 }
 
-impl GanttChart {
-    pub fn new() -> GanttChart {
-        let mut comment_map: HashMap<String, VecDeque<Comment>> = HashMap::new();
-        comment_map.insert("comments".to_string(), VecDeque::new());
-        GanttChart { comment_map, ..Self::default() }
-    }
-
-    pub fn parse_text(&mut self, text: &str) -> Result<(), &str> {
+impl MermaidDiagramFormatter for GanttChart {
+    fn format_diagram(&mut self, text: &str) -> Result<String, &str> {
         self.parse_lines(
             text.lines()
                 .filter(|l| !l.is_empty())
@@ -30,6 +26,16 @@ impl GanttChart {
                 .enumerate()
                 .peekable(),
         )
+    }
+}
+
+impl GanttChart {
+    pub fn new() -> Self {
+        let mut gantt_chart = Self::default();
+        gantt_chart
+            .comment_map
+            .insert("comments".to_string(), VecDeque::new());
+        gantt_chart
     }
 
     fn flush_comments(&mut self) -> VecDeque<Comment> {
@@ -149,7 +155,7 @@ impl GanttChart {
         }
     }
 
-    fn parse_lines<I>(&mut self, mut input_lines: iter::Peekable<I>) -> Result<(), &str>
+    fn parse_lines<I>(&mut self, mut input_lines: iter::Peekable<I>) -> Result<String, &str>
     where
         I: Iterator<Item = (usize, ParsedLine)>,
     {
@@ -204,7 +210,7 @@ impl GanttChart {
             }
         };
 
-        Ok(())
+        Ok(self.to_string())
     }
 }
 
@@ -261,7 +267,7 @@ struct ParsedLine {
 }
 
 impl ParsedLine {
-    fn new(line: &str) -> ParsedLine {
+    fn new(line: &str) -> Self {
         let mut parsed_line = Self::default();
 
         let trimmed_text = String::from(line).trim_ascii().to_string();
@@ -369,7 +375,7 @@ struct GanttAttr {
 }
 
 impl GanttAttr {
-    fn new(line: &str, is_comment: bool) -> GanttAttr {
+    fn new(line: &str, is_comment: bool) -> Self {
         let mut text = line.to_string();
 
         let attr = if let Some(a) = OptionalAttr::iter()
@@ -481,7 +487,7 @@ struct Task {
 }
 
 impl Task {
-    fn new(text: &str, is_comment: bool) -> Task {
+    fn new(text: &str, is_comment: bool) -> Self {
         let mut task = Task { is_comment, ..Self::default() };
 
         let text = String::from(text);
@@ -641,7 +647,7 @@ struct Section {
 }
 
 impl Section {
-    fn new(name: String, is_comment: bool) -> Section {
+    fn new(name: String, is_comment: bool) -> Self {
         Section { name, is_comment, ..Self::default() }
     }
 
@@ -737,7 +743,7 @@ mod tests {
 
         let mut gantt_chart = GanttChart::new();
         gantt_chart
-            .parse_text(input_text)
+            .format_diagram(input_text)
             .expect("input_text should be a valid diagram.");
         assert_eq!(gantt_chart.to_string(), expected_output)
     }
@@ -771,7 +777,7 @@ mod tests {
 
         let mut gantt_chart = GanttChart::new();
         gantt_chart
-            .parse_text(input_text)
+            .format_diagram(input_text)
             .expect("input_text should be a valid diagram.");
         assert_eq!(gantt_chart.to_string(), expected_output)
     }
@@ -804,7 +810,7 @@ mod tests {
 
         let mut gantt_chart = GanttChart::new();
         gantt_chart
-            .parse_text(input_text)
+            .format_diagram(input_text)
             .expect("input_text should be a valid diagram.");
         assert_eq!(gantt_chart.to_string(), expected_output)
     }
@@ -832,7 +838,7 @@ mod tests {
 
         let mut gantt_chart = GanttChart::new();
         gantt_chart
-            .parse_text(input_text)
+            .format_diagram(input_text)
             .expect("input_text should be a valid diagram.");
 
         assert_eq!(
@@ -883,7 +889,7 @@ mod tests {
 
         let mut gantt_chart = GanttChart::new();
         gantt_chart
-            .parse_text(input_text)
+            .format_diagram(input_text)
             .expect("input_text should be a valid diagram.");
         assert_eq!(gantt_chart.to_string(), expected_output)
     }
@@ -908,7 +914,7 @@ mod tests {
 
         let mut gantt_chart = GanttChart::new();
         gantt_chart
-            .parse_text(input_text)
+            .format_diagram(input_text)
             .expect("input_text should be a valid diagram.");
         assert_eq!(gantt_chart.to_string(), expected_output)
     }
@@ -954,7 +960,7 @@ mod tests {
 
         let mut gantt_chart = GanttChart::new();
         gantt_chart
-            .parse_text(input_text)
+            .format_diagram(input_text)
             .expect("input_text should be a valid diagram.");
         assert_eq!(gantt_chart.to_string(), expected_output)
     }
@@ -982,7 +988,7 @@ mod tests {
 
         let mut gantt_chart = GanttChart::new();
         gantt_chart
-            .parse_text(input_text)
+            .format_diagram(input_text)
             .expect("input_text should be a valid diagram.");
         assert_eq!(gantt_chart.to_string(), expected_output)
     }
@@ -1008,7 +1014,7 @@ mod tests {
 
         let mut gantt_chart = GanttChart::new();
         gantt_chart
-            .parse_text(input_text)
+            .format_diagram(input_text)
             .expect("input_text should be a valid diagram.");
         assert_eq!(gantt_chart.to_string(), expected_output)
     }
@@ -1017,7 +1023,7 @@ mod tests {
     fn invalid_diagram() {
         let input_text: &str = "some random text";
         let mut gantt_chart = GanttChart::new();
-        assert!(gantt_chart.parse_text(input_text).is_err());
+        assert!(gantt_chart.format_diagram(input_text).is_err());
     }
 
     /// Tasks without a section at the top should line up with any additional tasks in following sections.
@@ -1056,7 +1062,7 @@ mod tests {
         };
         let mut gantt_chart = GanttChart::new();
         gantt_chart
-            .parse_text(input_text)
+            .format_diagram(input_text)
             .expect("input_text should be a valid diagram.");
         assert_eq!(gantt_chart.to_string(), expected_output)
     }
@@ -1088,7 +1094,7 @@ mod tests {
         };
         let mut gantt_chart = GanttChart::new();
         gantt_chart
-            .parse_text(input_text)
+            .format_diagram(input_text)
             .expect("input_text should be a valid diagram.");
         assert_eq!(gantt_chart.to_string(), expected_output)
     }
@@ -1122,7 +1128,7 @@ mod tests {
 
         let mut gantt_chart = GanttChart::new();
         gantt_chart
-            .parse_text(input_text)
+            .format_diagram(input_text)
             .expect("input_text should be a valid diagram.");
         assert_eq!(gantt_chart.to_string(), expected_output)
     }

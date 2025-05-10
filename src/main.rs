@@ -1,7 +1,9 @@
-/// Formatter for Mermaid Gantt Charts.
-/// Mermaid Gantt diagram Documentation https://mermaid.js.org/syntax/gantt.html#gantt-diagrams
 mod cli;
 mod format;
+
+use std::io::Read;
+
+use format::MermaidDiagramFormatter;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = cli::build();
@@ -10,38 +12,44 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let input = args
         .get_one::<String>("input")
         .expect("input is required.");
-
     let mut output = args.get_one::<String>("output");
 
-    let input_source = if input.eq("-") {
-        format::InputSource::Stdin(cli::read_stdin(&cmd))
+    let diagram_type = args
+        .get_one::<String>("type")
+        .expect("type is required.");
+
+    let mut input_source = if input.eq("-") {
+        cli::InputSource::Stdin(cli::read_stdin(&cmd))
     } else {
-        format::InputSource::File(std::fs::File::open(input)?)
+        cli::InputSource::File(std::fs::File::open(input)?)
     };
 
-    if let format::InputSource::File(_) = input_source {
-        if output.is_none() && args.get_flag("in-place") {
+    if output.is_none() && args.get_flag("in-place") {
+        if let cli::InputSource::File(_) = input_source {
             output = Some(input);
         }
-    }
+    };
 
     let mut input_text = String::new();
-    format::read_input_to_string(input_source, &mut input_text)?;
+    input_source.read_to_string(&mut input_text)?;
 
-    let mut gantt_chart = format::GanttChart::new();
-
-    match gantt_chart.parse_text(&input_text) {
-        Err(e) => cli::fail("--input", e, &cmd),
-        Ok(_) => {
-            if let Some(file_name) = output {
-                Ok(format::create_or_replace_file(
-                    file_name,
-                    gantt_chart.to_string(),
-                )?)
+    match cli::FormatOptions::get(diagram_type) {
+        Some(mut formatter) => {
+            if let Ok(diagram) = formatter.format_diagram(&input_text) {
+                if let Some(file_name) = output {
+                    Ok(cli::create_or_replace_file(file_name, diagram)?)
+                } else {
+                    println!("{}", diagram);
+                    Ok(())
+                }
             } else {
-                println!("{}", gantt_chart);
-                Ok(())
+                panic!("Something went wrong, failed to format diagram.")
             }
         }
+        _ => cli::fail(
+            "--type",
+            "Could not determine formatter type.",
+            &cmd,
+        ),
     }
 }
