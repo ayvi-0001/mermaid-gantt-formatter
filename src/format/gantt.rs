@@ -1,13 +1,8 @@
-use super::MermaidDiagramFormatter;
-
-use std::cell::RefCell;
-use std::collections::{HashMap, VecDeque};
-use std::convert::Into;
-use std::ops::{Div, Mul};
-use std::rc::Rc;
-use std::{fmt, iter};
+use std::{cell::RefCell, collections::{HashMap, VecDeque}, convert::Into, fmt, iter, ops::{Div, Mul}, rc::Rc};
 
 use strum::{EnumIter, IntoEnumIterator, IntoStaticStr};
+
+use super::MermaidDiagramFormatter;
 
 #[derive(Debug, Default)]
 pub struct GanttChart {
@@ -58,17 +53,11 @@ impl GanttChart {
             .expect("comment_map should contain the key `comments`.")
     }
 
-    fn push_comment(&mut self, comment: Comment) {
-        self.get_comments().push_front(comment)
-    }
+    fn push_comment(&mut self, comment: Comment) { self.get_comments().push_front(comment) }
 
-    fn push_attr(&mut self, attr: GanttAttr) {
-        self.attributes.push(attr)
-    }
+    fn push_attr(&mut self, attr: GanttAttr) { self.attributes.push(attr) }
 
-    fn push_section(&mut self, section: Section) {
-        self.sections.push(section)
-    }
+    fn push_section(&mut self, section: Section) { self.sections.push(section) }
 
     fn push_task(&mut self, task: Task) {
         if let Some(section) = self.get_current_section() {
@@ -80,17 +69,11 @@ impl GanttChart {
         }
     }
 
-    fn get_current_section(&mut self) -> Option<&mut Section> {
-        self.sections.last_mut()
-    }
+    fn get_current_section(&mut self) -> Option<&mut Section> { self.sections.last_mut() }
 
     fn get_latest_task(&mut self) -> Option<&mut Rc<RefCell<Task>>> {
         let current_section = self.get_current_section();
-        if let Some(section) = current_section {
-            section.tasks.last_mut()
-        } else {
-            None
-        }
+        if let Some(section) = current_section { section.tasks.last_mut() } else { None }
     }
 
     fn iterate_tasks(&self) -> impl Iterator<Item = &Rc<RefCell<Task>>> {
@@ -157,8 +140,7 @@ impl GanttChart {
 
     fn parse_lines<I>(&mut self, mut input_lines: iter::Peekable<I>) -> Result<String, &str>
     where
-        I: Iterator<Item = (usize, ParsedLine)>,
-    {
+        I: Iterator<Item = (usize, ParsedLine)>, {
         while let Some((idx, current_line)) = input_lines.next() {
             let next_line = input_lines.peek();
 
@@ -167,10 +149,7 @@ impl GanttChart {
             };
 
             if current_line.is_attr(&self.sections, next_line) {
-                self.push_attr(GanttAttr::new(
-                    &current_line.text,
-                    current_line.is_comment,
-                ));
+                self.push_attr(GanttAttr::new(&current_line.text, current_line.is_comment));
                 continue;
             } else if current_line.is_section() {
                 self.push_section(Section::new(
@@ -178,10 +157,7 @@ impl GanttChart {
                     current_line.is_comment,
                 ));
             } else if current_line.is_task() {
-                self.push_task(Task::new(
-                    &current_line.text,
-                    current_line.is_comment,
-                ));
+                self.push_task(Task::new(&current_line.text, current_line.is_comment));
             } else if current_line.is_comment {
                 // Check for comment line must be after first checking section/task.
                 self.push_comment(Comment { text: String::from(&current_line.text) });
@@ -247,8 +223,7 @@ impl fmt::Display for GanttChart {
 
 fn consume<'a, T>(i: &mut impl Iterator<Item = &'a mut T>, v: &T) -> Option<&'a mut T>
 where
-    T: ?Sized + PartialOrd<T> + PartialEq<T>,
-{
+    T: ?Sized + PartialOrd<T> + PartialEq<T>, {
     i.find(|x| *x == v)
 }
 
@@ -301,13 +276,9 @@ impl ParsedLine {
         }
     }
 
-    fn is_task(&self) -> bool {
-        self.text.contains(":")
-    }
+    fn is_task(&self) -> bool { self.text.contains(":") }
 
-    fn is_section(&self) -> bool {
-        self.text.starts_with("section")
-    }
+    fn is_section(&self) -> bool { self.text.starts_with("section") }
 }
 
 enum Indent {
@@ -337,8 +308,9 @@ impl fmt::Display for Indent {
     }
 }
 
-/// Required/optional keywords that may appear at the top of a mermaid gantt file.
-/// Note: this is not an exhaustive list. This script doesn't currently account for YAML frontmatter.
+/// Required/optional keywords that may appear at the top of a mermaid gantt
+/// file. Note: this is not an exhaustive list. This script doesn't currently
+/// account for YAML frontmatter.
 /// https://mermaid.js.org/config/configuration.html#frontmatter-config
 #[allow(non_camel_case_types)]
 #[derive(EnumIter, IntoStaticStr)]
@@ -500,8 +472,9 @@ impl Task {
         task.title
             .push_str(String::from(task_split.0).trim());
 
-        // Metadata items are separated by a comma. Valid tags are active, done, crit, and milestone.
-        // Tags are optional, but if used, they must be specified first before any ids and dates.
+        // Metadata items are separated by a comma. Valid tags are active, done, crit,
+        // and milestone. Tags are optional, but if used, they must be specified
+        // first before any ids and dates.
         let mut task_meta = task_split
             .1
             .split(",")
@@ -523,12 +496,7 @@ impl Task {
         if consume(&mut task_meta.iter_mut(), &"crit".to_string()).is_some() {
             task.crit = !task.crit
         };
-        if consume(
-            &mut task_meta.iter_mut(),
-            &"milestone".to_string(),
-        )
-        .is_some()
-        {
+        if consume(&mut task_meta.iter_mut(), &"milestone".to_string()).is_some() {
             task.milestone = !task.milestone
         };
 
@@ -536,21 +504,25 @@ impl Task {
             !TaskTags::iter().any(|tag| item.eq(<&TaskTags as Into<&str>>::into(&tag)))
         });
 
-        // After processing the tags, the remaining metadata items are interpreted as follows:
+        // After processing tags, remaining metadata items are interpreted as follows:
         while let Some(p) = task_meta.pop_front() {
             match task_meta.len() + 1 {
                 // If a single item is specified, it determines when the task ends.
                 // It can either be a specific date/time or a duration.
-                // If a duration is specified, it is added to the start date of the task to determine
-                // the end date of the task, taking into account any exclusions.
+                // If a duration is specified, it is added to the start date of the task to
+                // determine the end date of the task, taking into account any
+                // exclusions.
                 1_usize => task.end_date.push_str(&p),
                 // If two items are specified, the last item is interpreted as in the previous case.
-                // The first item can either specify an explicit start date/time (in the format specified by dateFormat)
-                // or reference another task using after <otherTaskID> [[otherTaskID2 [otherTaskID3]]...].
-                // In the latter case, the start date of the task will be set according to the latest end date of any referenced task.
+                // The first item can either specify an explicit start date/time (in the format
+                // specified by dateFormat) or reference another task using after
+                // <otherTaskID> [[otherTaskID2 [otherTaskID3]]...]. In the latter
+                // case, the start date of the task will be set according to the latest end date of
+                // any referenced task.
                 2_usize => task.start_date.push_str(&p),
-                // If three items are specified, the last two will be interpreted as in the previous case.
-                // The first item will denote the ID of the task, which can be referenced using the later <taskID> syntax.
+                // If three items are specified, the last two will be interpreted as in the previous
+                // case. The first item will denote the ID of the task, which can be
+                // referenced using the later <taskID> syntax.
                 3_usize => task.id.push_str(&p),
                 4_usize.. => panic!("Too many items for: {}", &task.title),
                 _ => break,
@@ -609,10 +581,7 @@ impl Task {
                 pad_string(&self.id, &task_lengths.len_id)
             ));
         } else {
-            display.push_str(&format!(
-                "{}  ",
-                pad_string(&self.id, &task_lengths.len_id)
-            ));
+            display.push_str(&format!("{}  ", pad_string(&self.id, &task_lengths.len_id)));
         }
         if !self.start_date.is_empty() {
             display.push_str(&format!(
@@ -628,7 +597,8 @@ impl Task {
         display = display.trim_end().to_string();
 
         if display.ends_with(":") {
-            // Even without any attributes/dates, need at least 1 empty space after the colon.
+            // Even without any attributes/dates, need at least 1 empty space after the
+            // colon.
             display.push(' ');
             display
         } else {
@@ -651,20 +621,16 @@ impl Section {
         Section { name, is_comment, ..Self::default() }
     }
 
-    /// This constructor is used for when a diagram has tasks at the top of the file that are not under a section.
-    /// When formatted, this section will not display a "section: {title}" line, and tasks under it will be indented once,
-    /// instead of indented twice like tasks under normal sections are.
-    fn hidden() -> Section {
-        Section { name: "".to_owned(), is_hidden: true, ..Self::default() }
-    }
+    /// This constructor is used for when a diagram has tasks at the top of the
+    /// file that are not under a section. When formatted, this section will
+    /// not display a "section: {title}" line, and tasks under it will be
+    /// indented once, instead of indented twice like tasks under normal
+    /// sections are.
+    fn hidden() -> Section { Section { name: "".to_owned(), is_hidden: true, ..Self::default() } }
 
-    fn push_task(&mut self, task: Task) {
-        self.tasks.push(Rc::new(RefCell::new(task)));
-    }
+    fn push_task(&mut self, task: Task) { self.tasks.push(Rc::new(RefCell::new(task))); }
 
-    fn push_comment(&mut self, comment: Comment) {
-        self.comments.push(comment);
-    }
+    fn push_comment(&mut self, comment: Comment) { self.comments.push(comment); }
 
     fn format(&self, task_lengths: &TaskPadding) -> String {
         let mut display = String::default();
@@ -706,8 +672,9 @@ impl Section {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use indoc::indoc;
+
+    use super::*;
 
     #[test]
     fn task_comments() {
@@ -1026,7 +993,8 @@ mod tests {
         assert!(gantt_chart.format_diagram(input_text).is_err());
     }
 
-    /// Tasks without a section at the top should line up with any additional tasks in following sections.
+    /// Tasks without a section at the top should line up with any additional
+    /// tasks in following sections.
     #[test]
     fn top_tasks_no_section() {
         let input_text = indoc! {"\

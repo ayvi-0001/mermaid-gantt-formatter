@@ -1,10 +1,10 @@
-use crate::format::{GanttChart, MermaidDiagramFormatter};
-
 use std::io::{IsTerminal, Write};
 
-use clap::{arg, ArgAction, Command};
+use clap::{ArgAction, Command, arg};
 use strum::{EnumIter, IntoEnumIterator, IntoStaticStr};
 use strum_macros::AsRefStr;
+
+use crate::format::{GanttChart, MermaidDiagramFormatter};
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, EnumIter, AsRefStr, IntoStaticStr, Default)]
@@ -47,9 +47,7 @@ pub fn build() -> Command {
                 .requires("input")
                 .action(ArgAction::SetTrue),
             arg!(-t --"type" "Formatter type.")
-                .default_value(<FormatOptions as Into<&str>>::into(
-                    FormatOptions::default(),
-                ))
+                .default_value(<FormatOptions as Into<&str>>::into(FormatOptions::default()))
                 .value_parser(type_parser)
                 .action(ArgAction::Set),
         ])
@@ -88,12 +86,9 @@ pub fn read_stdin(cmd: &Command) -> std::io::Stdin {
 }
 
 pub fn fail(err_msg: &str, cmd: &mut Command) -> ! {
-    clap::Error::raw(
-        clap::error::ErrorKind::Io,
-        format!("{}\n", err_msg),
-    )
-    .with_cmd(cmd)
-    .exit()
+    clap::Error::raw(clap::error::ErrorKind::Io, format!("{}\n", err_msg))
+        .with_cmd(cmd)
+        .exit()
 }
 
 pub fn fail_input(arg_context: &str, value_context: &str, cmd: &mut Command) -> ! {
@@ -113,9 +108,7 @@ pub fn fail_input(arg_context: &str, value_context: &str, cmd: &mut Command) -> 
 struct Version {}
 
 impl Version {
-    pub fn short() -> String {
-        clap::crate_version!().to_string()
-    }
+    pub fn short() -> String { clap::crate_version!().to_string() }
 
     pub fn long() -> String {
         format!(

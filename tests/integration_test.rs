@@ -1,5 +1,4 @@
-use assert_fs::assert::PathAssert;
-use assert_fs::fixture::{FileTouch, FileWriteFile, PathChild, PathCopy};
+use assert_fs::{assert::PathAssert, fixture::{FileTouch, FileWriteFile, PathChild, PathCopy}};
 use indoc::indoc;
 
 #[test]
