@@ -2,11 +2,7 @@ use crate::format::{GanttChart, MermaidDiagramFormatter};
 
 use std::io::{IsTerminal, Write};
 
-use clap::{
-    arg,
-    error::{ContextKind, ContextValue, ErrorKind},
-    ArgAction, Command,
-};
+use clap::{arg, ArgAction, Command};
 use strum::{EnumIter, IntoEnumIterator, IntoStaticStr};
 use strum_macros::AsRefStr;
 
@@ -19,13 +15,13 @@ pub enum FormatOptions {
 }
 
 impl FormatOptions {
-    pub fn get(opt: &str) -> Option<impl MermaidDiagramFormatter> {
+    pub fn get(opt: &str) -> Result<impl MermaidDiagramFormatter, &str> {
         if let Some(formatter) = Self::iter().find(|format_type| opt.eq(format_type.as_ref())) {
             match formatter {
-                Self::gantt => Some(GanttChart::new()),
+                Self::gantt => Ok(GanttChart::new()),
             }
         } else {
-            None
+            Err("Could not find formatter type.")
         }
     }
 }
@@ -82,24 +78,38 @@ pub fn create_or_replace_file(file_name: &String, contents: String) -> std::io::
 pub fn read_stdin(cmd: &Command) -> std::io::Stdin {
     let stdin = std::io::stdin();
     if stdin.is_terminal() {
-        fail("--input", "", cmd)
+        let err_msg = "No input file specified, and nothing read from stdin.\
+             \u{20}If you want to specify an input file, please use \
+             \u{20}`-i <input>.`, or `-i-` to read from stdin (default).\n";
+        let err = clap::Error::raw(clap::error::ErrorKind::Io, err_msg).with_cmd(cmd);
+        err.exit()
     }
     stdin
 }
 
-pub fn fail(arg_context: &str, value_context: &str, cmd: &Command) -> ! {
-    let mut err = clap::Error::new(ErrorKind::ValueValidation).with_cmd(cmd);
+pub fn fail(err_msg: &str, cmd: &mut Command) -> ! {
+    clap::Error::raw(
+        clap::error::ErrorKind::Io,
+        format!("{}\n", err_msg),
+    )
+    .with_cmd(cmd)
+    .exit()
+}
+
+pub fn fail_input(arg_context: &str, value_context: &str, cmd: &mut Command) -> ! {
+    let mut err = clap::Error::new(clap::error::ErrorKind::ValueValidation).with_cmd(cmd);
     err.insert(
-        ContextKind::InvalidArg,
-        ContextValue::String(arg_context.to_string()),
+        clap::error::ContextKind::InvalidArg,
+        clap::error::ContextValue::String(arg_context.to_string()),
     );
     err.insert(
-        ContextKind::InvalidValue,
-        ContextValue::String(value_context.to_string()),
+        clap::error::ContextKind::InvalidValue,
+        clap::error::ContextValue::String(value_context.to_string()),
     );
     err.exit()
 }
 
+#[derive(Debug)]
 struct Version {}
 
 impl Version {

@@ -260,7 +260,7 @@ fn pad_string(string: &str, max_length: &usize) -> String {
     padding
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct ParsedLine {
     text: String,
     is_comment: bool,

@@ -1,7 +1,7 @@
 mod cli;
 mod format;
 
-use std::io::Read;
+use std::io::{Read, Write};
 
 use format::MermaidDiagramFormatter;
 
@@ -21,7 +21,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut input_source = if input.eq("-") {
         cli::InputSource::Stdin(cli::read_stdin(&cmd))
     } else {
-        cli::InputSource::File(std::fs::File::open(input)?)
+        cli::InputSource::File(
+            std::fs::File::open(input)
+                .map_err(|e| cli::fail(&e.to_string(), &mut cmd))
+                .unwrap(),
+        )
     };
 
     if output.is_none() && args.get_flag("in-place") {
@@ -33,23 +37,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut input_text = String::new();
     input_source.read_to_string(&mut input_text)?;
 
+    if input_text.trim_ascii_end().chars().count() == 0 {
+        cli::fail("No input detected.", &mut cmd)
+    }
+
     match cli::FormatOptions::get(diagram_type) {
-        Some(mut formatter) => {
-            if let Ok(diagram) = formatter.format_diagram(&input_text) {
+        Ok(mut formatter) => match formatter.format_diagram(&input_text) {
+            Ok(diagram) => {
                 if let Some(file_name) = output {
                     Ok(cli::create_or_replace_file(file_name, diagram)?)
                 } else {
-                    println!("{}", diagram);
+                    std::io::stdout().write_all(diagram.as_bytes())?;
                     Ok(())
                 }
-            } else {
-                panic!("Something went wrong, failed to format diagram.")
             }
-        }
-        _ => cli::fail(
-            "--type",
-            "Could not determine formatter type.",
-            &cmd,
-        ),
+            Err(e) => cli::fail(e, &mut cmd),
+        },
+        Err(e) => cli::fail_input("--type", e, &mut cmd),
     }
 }
