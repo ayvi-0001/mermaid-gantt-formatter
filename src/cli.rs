@@ -4,7 +4,7 @@ use clap::error::{ContextKind, ContextValue, ErrorKind};
 use clap::{arg, ArgAction, Command};
 
 pub fn build() -> Command {
-    Command::new(env!("CARGO_PKG_NAME"))
+    Command::new(clap::crate_name!())
         .version(Version::short())
         .long_version(Version::long())
         .args(&[
@@ -45,13 +45,13 @@ struct Version {}
 
 impl Version {
     pub fn short() -> String {
-        env!("CARGO_PKG_VERSION").to_string()
+        clap::crate_version!().to_string()
     }
 
     pub fn long() -> String {
         format!(
             "{} ({} {})\ntriple: {}\nrustc: {}",
-            env!("CARGO_PKG_VERSION"),
+            clap::crate_version!(),
             env!("VERGEN_GIT_SHA"),
             env!("VERGEN_GIT_COMMIT_DATE"),
             env!("VERGEN_RUSTC_HOST_TRIPLE"),
