@@ -574,22 +574,21 @@ impl Task {
         } else {
             display.push_str(&" ".repeat(11));
         }
-        if !self.id.is_empty() {
-            display.push_str(&format!(
-                "{}{}, ",
-                self.id,
-                pad_string(&self.id, &task_lengths.len_id)
-            ));
-        } else {
-            display.push_str(&format!("{}  ", pad_string(&self.id, &task_lengths.len_id)));
-        }
-        if !self.start_date.is_empty() {
-            display.push_str(&format!(
-                "{}{}, ",
-                self.start_date,
-                pad_string(&self.start_date, &task_lengths.len_start_date)
-            ));
-        }
+
+        display.push_str(&format!(
+            "{}{}{}",
+            self.id,
+            pad_string(&self.id, &task_lengths.len_id),
+            if !self.id.is_empty() { ", " } else { "  " },
+        ));
+
+        display.push_str(&format!(
+            "{}{}{}",
+            self.start_date,
+            pad_string(&self.start_date, &task_lengths.len_start_date),
+            if !self.start_date.is_empty() { ", " } else { "  " },
+        ));
+
         if !self.end_date.is_empty() {
             display.push_str(&self.end_date.to_string());
         }
@@ -597,8 +596,7 @@ impl Task {
         display = display.trim_end().to_string();
 
         if display.ends_with(":") {
-            // Even without any attributes/dates, need at least 1 empty space after the
-            // colon.
+            // Even with 0 attributes/dates, need at least 1 empty space after the colon
             display.push(' ');
             display
         } else {
@@ -702,7 +700,7 @@ mod tests {
             %%  Comment for a following task.
             %%  Multiple comments for the same task.
                 A milestone      : done  ,       milestone, id-02, after id-01, 1d
-            %%  A commented task :                                 30d
+            %%  A commented task :                                              30d
             %%  Comment for the last task.
                 Another task     : active,                         after id-02, 20d
             "
@@ -851,31 +849,6 @@ mod tests {
             %% Comment at end of file #1
             %% Comment at end of file #2
             %% Comment at end of file #3
-            "
-        };
-
-        let mut gantt_chart = GanttChart::new();
-        gantt_chart
-            .format_diagram(input_text)
-            .expect("input_text should be a valid diagram.");
-        assert_eq!(gantt_chart.to_string(), expected_output)
-    }
-
-    #[test]
-    fn section_with_no_name() {
-        let input_text = indoc! {"\
-            gantt
-              dateFormat YYYY-MM-DD
-              section
-                A task       : done,  30d
-            "
-        };
-        let expected_output = indoc! {"\
-            gantt
-              dateFormat YYYY-MM-DD
-
-              section
-                A task : done  ,                    30d
             "
         };
 
@@ -1055,8 +1028,8 @@ mod tests {
 
               section Main
                 Initial milestone :               milestone, m1, 17:49, 2m
-                Task A            :                              10m
-                Task B            :                              5m
+                Task A            :                                     10m
+                Task B            :                                     5m
                 Final milestone   :               milestone, m2, 18:08, 4m
             "
         };

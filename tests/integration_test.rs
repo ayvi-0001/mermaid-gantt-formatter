@@ -112,10 +112,10 @@ const EXPECTED_OUTPUT: &str = indoc! {"\
       section Critical tasks
         Completed task in the critical line : done  , crit,                     2014-01-06, 24h
         Implement parser and jison          : done  , crit,                     after des1, 2d
-        Create tests for parser             : active, crit,                     3d
-        Future task in critical line        :         crit,                     5d
-    %%  Create tests for renderer           :                                   2d
-        Add to mermaid                      :                                   until isadded
+        Create tests for parser             : active, crit,                                 3d
+        Future task in critical line        :         crit,                                 5d
+    %%  Create tests for renderer           :                                               2d
+        Add to mermaid                      :                                               until isadded
         Functionality added                 :               milestone, isadded, 2014-01-25, 0d
 
       section Documentation
@@ -126,7 +126,7 @@ const EXPECTED_OUTPUT: &str = indoc! {"\
       section Last section
     %%  Refer to section Documentation
         Describe gantt syntax               :                                   after doc1, 3d
-        Add gantt diagram to demo page      :                                   20h
-        Add another diagram to demo page    :                                   48h
+        Add gantt diagram to demo page      :                                               20h
+        Add another diagram to demo page    :                                               48h
     "
 };
