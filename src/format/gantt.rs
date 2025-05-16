@@ -121,7 +121,7 @@ impl GanttChart {
 
     fn push_section_comments(&mut self) {
         for section in self.sections.iter_mut() {
-            if let Some(mut section_comments) = self.comment_map.remove(&section.name) {
+            if let Some(mut section_comments) = self.comment_map.remove(&section.value) {
                 while let Some(comment) = section_comments.pop_back() {
                     section.push_comment(comment);
                 }
@@ -284,7 +284,7 @@ impl ParsedLine {
 
     fn is_task(&self) -> bool { self.text.contains(":") }
 
-    fn is_section(&self) -> bool { self.text.starts_with("section") }
+    fn is_section(&self) -> bool { self.text.to_lowercase().starts_with("section") }
 }
 
 enum Indent {
@@ -624,7 +624,7 @@ impl Task {
 
 #[derive(Debug, Default)]
 struct Section {
-    name: String,
+    value: String,
     tasks: Vec<Rc<RefCell<Task>>>,
     is_comment: bool,
     is_hidden: bool,
@@ -632,8 +632,8 @@ struct Section {
 }
 
 impl Section {
-    fn new(name: String, is_comment: bool) -> Self {
-        Section { name, is_comment, ..Self::default() }
+    fn new(value: String, is_comment: bool) -> Self {
+        Section { value, is_comment, ..Self::default() }
     }
 
     /// This constructor is used for when a diagram has tasks at the top of the
@@ -641,7 +641,7 @@ impl Section {
     /// not display a "section: {title}" line, and tasks under it will be
     /// indented once, instead of indented twice like tasks under normal
     /// sections are.
-    fn hidden() -> Section { Section { name: "".to_owned(), is_hidden: true, ..Self::default() } }
+    fn hidden() -> Section { Section { value: "".to_owned(), is_hidden: true, ..Self::default() } }
 
     fn push_task(&mut self, task: Task) { self.tasks.push(Rc::new(RefCell::new(task))); }
 
@@ -662,14 +662,21 @@ impl Section {
         };
 
         if !self.is_hidden {
+            let name = Regex::new(r"(?i)^(section)\s+(?<name>.*)$")
+                .unwrap()
+                .captures(&self.value)
+                .expect("Sections must begin with the keyword `section`.")
+                .name("name")
+                .map_or("", |m| m.into())
+                .to_string();
+
             if !self.is_comment {
-                display.push_str(&format!("{}{}\n", Indent::Full, self.name));
+                display.push_str(&format!("{}section {name}\n", Indent::Full));
             } else {
                 display.push_str(&format!(
-                    "{}{}{}\n",
+                    "{}{}section {name}\n",
                     Comment::TOKEN,
                     Indent::Half,
-                    self.name
                 ));
             }
         };
@@ -1032,12 +1039,13 @@ mod tests {
     }
 
     #[test]
-    fn keyword_casing() {
+    fn case_sensitivity() {
         let input_text = indoc! {"\
             gantt
             dateformat  %y-%m-%d
             %% WEEKEND (v\\11.0.0+)
             WEEKEND friday
+            SEctION 1
             "
         };
         let expected_output = indoc! {"\
@@ -1045,6 +1053,8 @@ mod tests {
               dateFormat %y-%m-%d
               %% WEEKEND (v\\11.0.0+)
               weekend friday
+
+              section 1
             "
         };
         let mut gantt_chart = GanttChart::new();
