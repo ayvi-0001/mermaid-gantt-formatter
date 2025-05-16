@@ -39,7 +39,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if input_text.trim_ascii_end().chars().count() == 0 {
         cli::fail("No input detected.", &mut cmd)
-    }
+    } else if input_text
+        .lines()
+        .next()
+        .is_some_and(|l| cli::FormatOptions::get(l).is_err())
+    {
+        cli::fail(
+            "No diagram type detected matching given configuration for text.",
+            &mut cmd,
+        )
+    };
 
     match cli::FormatOptions::get(diagram_type) {
         Ok(mut formatter) => match formatter.format_diagram(&input_text) {

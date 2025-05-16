@@ -11,7 +11,7 @@ fn invalid_diagram_from_stdin() {
         .failure()
         .code(2)
         .stdout("")
-        .stderr("error: Invalid diagram\n");
+        .stderr("error: No diagram type detected matching given configuration for text.\n");
 }
 
 #[test]

@@ -6,6 +6,7 @@ use strum_macros::AsRefStr;
 
 use crate::format::{GanttChart, MermaidDiagramFormatter};
 
+/// Options must be lowercase.
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, EnumIter, AsRefStr, IntoStaticStr, Default)]
 pub enum FormatOptions {
@@ -16,7 +17,8 @@ pub enum FormatOptions {
 
 impl FormatOptions {
     pub fn get(opt: &str) -> Result<impl MermaidDiagramFormatter, &str> {
-        if let Some(formatter) = Self::iter().find(|format_type| opt.eq(format_type.as_ref())) {
+        if let Some(formatter) = Self::iter().find(|f| opt.trim().eq_ignore_ascii_case(f.as_ref()))
+        {
             match formatter {
                 Self::gantt => Ok(GanttChart::new()),
             }
