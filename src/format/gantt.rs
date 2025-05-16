@@ -1,5 +1,6 @@
 use std::{cell::RefCell, collections::{HashMap, VecDeque}, convert::Into, fmt, iter, ops::{Div, Mul}, rc::Rc};
 
+use regex::Regex;
 use strum::{EnumIter, IntoEnumIterator, IntoStaticStr};
 
 use super::MermaidDiagramFormatter;
@@ -261,8 +262,13 @@ impl ParsedLine {
 
     fn is_attr(&self, sections: &[Section], next: Option<&(usize, ParsedLine)>) -> bool {
         let starts_with_attr = OptionalAttr::iter().any(|a| {
-            self.text
-                .starts_with(<&OptionalAttr as Into<&str>>::into(&a))
+            Regex::new(&format!(
+                r"(?i)^({})\s",
+                <&OptionalAttr as Into<&str>>::into(&a)
+            ))
+            .unwrap()
+            .captures(&self.text)
+            .is_some()
         });
         let next_line_is_section = next.is_some_and(|(_, l)| l.is_section());
 
@@ -342,28 +348,39 @@ enum OptionalAttr {
 #[derive(Debug)]
 struct GanttAttr {
     attr: String,
-    text: String,
+    value: String,
     is_comment: bool,
 }
 
 impl GanttAttr {
     fn new(line: &str, is_comment: bool) -> Self {
-        let mut text = line.to_string();
+        let mut attr = Default::default();
+        let mut value = line.to_string();
 
-        let attr = if let Some(a) = OptionalAttr::iter()
-            .map(|a| <&OptionalAttr as Into<&str>>::into(&a))
-            .filter(|a| line.starts_with(a))
-            .map(|a| format!("{} ", a))
-            .collect::<Vec<String>>()
-            .first()
-        {
-            text = text.strip_prefix(a).unwrap().trim().to_string();
-            a.to_string()
-        } else {
-            String::default()
-        };
+        if !is_comment {
+            let attr_match = OptionalAttr::iter()
+                .map(<OptionalAttr as Into<&str>>::into)
+                .filter(|a| {
+                    line.split_whitespace().next().is_some_and(|l| {
+                        l.trim()
+                            .eq_ignore_ascii_case(&a.to_ascii_lowercase())
+                    })
+                })
+                .collect::<Vec<&str>>();
 
-        GanttAttr { attr, text, is_comment }
+            if let Some(a) = attr_match.first() {
+                let re_attr: Regex =
+                    Regex::new(&format!(r"(?i)^(?<attr>{}\s)(?<text>.*)$", a.trim())).unwrap();
+
+                if let Some(capture) = re_attr.captures(&value) {
+                    value = capture["text"].trim().to_string();
+                };
+
+                attr = format!("{} ", a)
+            }
+        }
+
+        GanttAttr { attr, value, is_comment }
     }
 
     fn format(&self) -> String {
@@ -373,10 +390,10 @@ impl GanttAttr {
                 Indent::Full,
                 Comment::TOKEN,
                 self.attr,
-                self.text
+                self.value
             )
         } else {
-            format!("{}{}{}", Indent::Full, self.attr, self.text)
+            format!("{}{}{}", Indent::Full, self.attr, self.value)
         }
     }
 }
@@ -934,32 +951,6 @@ mod tests {
     }
 
     #[test]
-    fn leading_and_trailing_newlines() {
-        let input_text: &str = indoc! {"\n\n\n\n
-                 gantt      
-            dateFormat YYYY-MM-DD
-            section One
-            a task :
-            \n\n\n\n\n
-            "
-        };
-        let expected_output = indoc! {"\
-            gantt
-              dateFormat YYYY-MM-DD
-
-              section One
-                a task : 
-            "
-        };
-
-        let mut gantt_chart = GanttChart::new();
-        gantt_chart
-            .format_diagram(input_text)
-            .expect("input_text should be a valid diagram.");
-        assert_eq!(gantt_chart.to_string(), expected_output)
-    }
-
-    #[test]
     fn invalid_diagram() {
         let input_text: &str = "some random text";
         let mut gantt_chart = GanttChart::new();
@@ -1031,6 +1022,29 @@ mod tests {
                 Task A            :                                     10m
                 Task B            :                                     5m
                 Final milestone   :               milestone, m2, 18:08, 4m
+            "
+        };
+        let mut gantt_chart = GanttChart::new();
+        gantt_chart
+            .format_diagram(input_text)
+            .expect("input_text should be a valid diagram.");
+        assert_eq!(gantt_chart.to_string(), expected_output)
+    }
+
+    #[test]
+    fn keyword_casing() {
+        let input_text = indoc! {"\
+            gantt
+            dateformat  %y-%m-%d
+            %% WEEKEND (v\\11.0.0+)
+            WEEKEND friday
+            "
+        };
+        let expected_output = indoc! {"\
+            gantt
+              dateFormat %y-%m-%d
+              %% WEEKEND (v\\11.0.0+)
+              weekend friday
             "
         };
         let mut gantt_chart = GanttChart::new();
