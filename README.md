@@ -125,7 +125,7 @@ gantt
     Create tests for parser             : active, crit,                                 3d
     Future task in critical line        :         crit,                                 5d
 %%  Create tests for renderer           :                                               2d
-    Add to mermaid                      :                                   until isadded
+    Add to mermaid                      :                                               until isadded
     Functionality added                 :               milestone, isadded, 2014-01-25, 0d
 
   section Documentation
@@ -164,7 +164,7 @@ gantt
     Create tests for parser             : active, crit,                                 3d
     Future task in critical line        :         crit,                                 5d
 %%  Create tests for renderer           :                                               2d
-    Add to mermaid                      :                                   until isadded
+    Add to mermaid                      :                                               until isadded
     Functionality added                 :               milestone, isadded, 2014-01-25, 0d
 
   section Documentation
