@@ -165,15 +165,18 @@ impl GanttChart {
                 continue;
             }
 
+            let next_line_is_comment: bool = next_line.is_some_and(|(_, l)| l.is_comment);
+            let next_line_is_section: bool = next_line.is_some_and(|(_, l)| l.is_section());
+
             if !self.get_comments().is_empty() {
                 if current_line.is_section() {
                     self.map_section_comments(current_line.text.to_string());
-                } else if next_line.is_some_and(|(_, l)| l.is_section()) {
-                    self.map_section_comments(next_line.unwrap().1.text.to_string());
-                } else if current_line.is_task() && next_line.is_some_and(|(_, l)| l.is_comment)
-                    || self.get_latest_task().is_some()
+                } else if self.get_latest_task().is_some()
+                    || (current_line.is_task() && next_line_is_comment)
                 {
                     self.push_comments_to_latest_task();
+                } else if next_line_is_section {
+                    self.map_section_comments(next_line.unwrap().1.text.to_string());
                 }
             }
         }
@@ -1096,5 +1099,28 @@ mod tests {
             .format_diagram(input_text)
             .expect("input_text should be a valid diagram.");
         assert_eq!(gantt_chart.to_string(), expected_output)
+    }
+
+    #[test]
+    fn comment_carrying_over() {
+        let input_text = indoc! {"\
+            gantt
+
+              section gaming
+            %%  comment for task 1
+                task 1 : done  ,                    24-11-21, 24-12-31
+
+              section personal
+            "
+        };
+
+        let mut gantt_chart = GanttChart::new();
+        gantt_chart
+            .format_diagram(input_text)
+            .expect("input_text should be a valid diagram.");
+
+        // comment for task 1 should stay where it is, and not carry over to the
+        // following section.
+        assert_eq!(gantt_chart.to_string(), input_text)
     }
 }
